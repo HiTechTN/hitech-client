@@ -30,3 +30,14 @@
 .btn{border:1px solid var(--line);background:var(--panel2);color:var(--txt);padding:.55rem 1rem;border-radius:8px;cursor:pointer;font-weight:600}
 .btn:hover{filter:brightness(1.2)}.btn.primary{background:#0284c7;border-color:#0284c7}.btn.wide{width:100%}
 @media(max-width:720px){#side{position:fixed;z-index:20;height:100%;transform:translateX(-100%)}#side.open{transform:none}}
+.btn.sm{padding:.35rem .6rem;font-size:.8rem}.btn.ghost{background:transparent}
+.modal{position:fixed;inset:0;background:rgba(2,6,16,.75);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem}
+.modal-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:min(640px,100%);max-height:84vh;display:flex;flex-direction:column}
+.modal-head{display:flex;justify-content:space-between;align-items:center;padding:.8rem 1rem;border-bottom:1px solid var(--line);font-weight:700}
+.modal-body{padding:1rem;overflow:auto}
+.crumbs{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;font-size:.88rem;margin-bottom:.6rem}
+.crumbs a{color:var(--acc);cursor:pointer}
+.drow{display:flex;justify-content:space-between;gap:.5rem;align-items:center;padding:.45rem .2rem;border-bottom:1px solid var(--line);font-size:.88rem;overflow-wrap:anywhere}
+.drow .btn{padding:.25rem .6rem;font-size:.75rem;white-space:nowrap}
+.crumbs{color:var(--acc)}
+.toast{position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--acc);padding:.7rem 1.2rem;border-radius:8px;z-index:99}

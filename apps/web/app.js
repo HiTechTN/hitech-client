@@ -1,5 +1,28 @@
 /* HiTech Client — universal frontend. Speaks ONLY the stable /api/hc/* API. */
 let SID = null, BACKENDS = [], sending = false;
+
+/* ---------- i18n (FR/TN) ---------- */
+const STR = {
+  fr: { newchat: "＋ Nouvelle conversation", sub: "framework universel",
+        ph: "Écris ou dicte ton message… (Entrée = envoyer)",
+        drive_title: "📁 HiTech Drive", copied: "Copié.", need_admin: "Connectez-vous admin sur le Drive d'abord.",
+        exported: "Exporté vers le Drive.", empty: "Aucune conversation.", novideo: "Joignez une vidéo d'abord." },
+  tn: { newchat: "＋ Conversation jdida", sub: "framework lel kol",
+        ph: "Ekteb wela ahki… (Entrée = teb3ath)",
+        drive_title: "📁 HiTech Drive", copied: "Tnassakh.", need_admin: "Connecti admin fel Drive 9bal.",
+        exported: "Tsavvegar fel Drive.", empty: "Ma famma chay.", novideo: "Zid vidéo 9bal." },
+};
+let LANG = localStorage.getItem("hcf-lang") || "fr";
+function t(k) { return (STR[LANG] && STR[LANG][k]) || STR.fr[k] || k; }
+function applyLang() {
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+}
+function toggleLang() {
+  LANG = LANG === "fr" ? "tn" : "fr";
+  localStorage.setItem("hcf-lang", LANG);
+  applyLang(); refreshSessions();
+}
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
@@ -76,11 +99,12 @@ let ttsOn = false;
 
 function showPending() {
   const p = $("pending");
-  if (!pendingImages.length) { p.classList.add("hidden"); p.textContent = ""; return; }
+  const n = pendingImages.length + pendingAttach.length;
+  if (!n) { p.classList.add("hidden"); p.textContent = ""; return; }
   p.classList.remove("hidden");
-  p.textContent = `🎥 ${pendingImages.length} image(s) de la vidéo seront envoyées avec le message (✕ pour retirer)`;
+  p.textContent = `📎 ${n} pièce(s) jointe(s) avec le message (✕ pour retirer)`;
   p.style.cursor = "pointer";
-  p.onclick = () => { pendingImages = []; showPending(); };
+  p.onclick = () => { pendingImages = []; pendingAttach = []; showPending(); };
 }
 
 function attachVideo() { $("vidFile").click(); }
@@ -160,12 +184,12 @@ function plainText(parts) {
 async function send() {
   if (sending) return;
   const text = $("input").value.trim();
-  if (!text && !pendingImages.length) return;
+  if (!text && !pendingImages.length && !pendingAttach.length) return;
   if (!SID) await newSession();
   $("input").value = "";
-  const parts = [...pendingImages];
+  const parts = [...pendingImages, ...pendingAttach];
   if (text) parts.push({ type: "text", text });
-  pendingImages = []; showPending();
+  pendingImages = []; pendingAttach = []; showPending();
   addMsg("user", parts);
   sending = true;
   const box = addMsg("assistant", [{ type: "text", text: "…" }]);
@@ -202,4 +226,81 @@ async function send() {
 $("input").addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
 });
-(async () => { try { await refreshBackends(); } catch (e) { $("connDot").textContent = "🔴 " + e.message; } await refreshSessions(); })();
+(async () => { applyLang(); try { await refreshBackends(); } catch (e) { $("connDot").textContent = "🔴 " + e.message; } await refreshSessions(); })();
+
+/* ---------- HiTech Drive integration ---------- */
+const DRIVE_BASE = "https://lab.hitech.tn";
+let drivePath = "", pendingAttach = [];
+const TEXT_EXTS = ["txt", "md", "markdown", "py", "js", "ts", "json", "yaml", "yml", "toml", "sh", "log", "csv", "css", "html", "xml", "sql", "c", "h", "cpp", "java", "go", "rs", "php", "ini", "conf"];
+
+function toast(msg) {
+  const el = document.createElement("div");
+  el.className = "toast"; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+function openDrive() { $("driveModal").classList.remove("hidden"); driveBrowse(""); }
+function closeDrive() { $("driveModal").classList.add("hidden"); }
+async function driveBrowse(path) {
+  drivePath = path;
+  $("driveMsg").textContent = "";
+  try {
+    const r = await fetch(DRIVE_BASE + "/api/drive/list?path=" + encodeURIComponent(path), { credentials: "include" });
+    if (!r.ok) throw new Error(r.status === 403 ? t("need_admin") : "HTTP " + r.status);
+    const d = await r.json();
+    $("driveCrumbs").innerHTML = (d.breadcrumbs || []).map((c, i) =>
+      (i ? "<span>›</span>" : "") + `<a onclick="driveBrowse('${esc(c.path)}')">${esc(c.name)}</a>`).join("");
+    let html = "";
+    for (const dir of (d.dirs || []))
+      html += `<div class="drow"><span>📁 ${esc(dir.name)}</span><button class="btn ghost" onclick="driveBrowse('${esc(dir.path)}')">Ouvrir</button></div>`;
+    for (const f of (d.files || []))
+      html += `<div class="drow"><span>${esc(f.name)} <span class="muted">${esc(f.size_str || "")}</span></span><button class="btn ghost" onclick='driveAttach(${JSON.stringify(f.path)},${JSON.stringify(f.name)})'>➕ Joindre</button></div>`;
+    $("driveList").innerHTML = html || `<p class="muted">${t("empty")}</p>`;
+  } catch (e) { $("driveMsg").textContent = "Drive: " + e.message; }
+}
+async function driveAttach(path, name) {
+  $("driveMsg").textContent = "…";
+  try {
+    const ext = (name.split(".").pop() || "").toLowerCase();
+    const url = DRIVE_BASE + "/api/drive/download?path=" + encodeURIComponent(path);
+    if (TEXT_EXTS.includes(ext)) {
+      const r = await fetch(url, { credentials: "include" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const txt = (await r.text()).slice(0, 60000);
+      pendingAttach.push({ type: "text", text: `[Drive: ${path}]\n${txt}\n[/Drive]` });
+    } else if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) {
+      const r = await fetch(url, { credentials: "include" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const blob = await r.blob();
+      const dataUrl = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
+      pendingImages.push({ type: "image_url", url: dataUrl });
+    } else {
+      pendingAttach.push({ type: "text", text: `[Drive: ${name}](${url})` });
+    }
+    showPending(); closeDrive(); toast("➕ " + name);
+  } catch (e) { $("driveMsg").textContent = "Drive: " + e.message; }
+}
+function sessMarkdown() {
+  return [...document.querySelectorAll("#msgs .msg")].map(m =>
+    (m.classList.contains("user") ? "**Moi:** " : "**Assistant:** ") +
+    (m.innerText || "").slice(0, 4000)).join("\n\n---\n\n");
+}
+async function exportToDrive() {
+  if (!SID) return;
+  const title = (document.querySelector(".sess.on")?.firstChild?.textContent || "conversation").trim().slice(0, 60) || "conversation";
+  const fname = title.toLowerCase().replace(/[^a-z0-9]+/gi, "-").slice(0, 50) + ".md";
+  const body = `# ${title}\n\nExporté de HiTech Client\n\n` + sessMarkdown();
+  try {
+    await fetch(DRIVE_BASE + "/api/drive/mkdir", {
+      method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ parent: "public", name: "HCF-exports" })
+    });
+    const fd = new FormData();
+    fd.append("folder", "public/HCF-exports");
+    fd.append("paths", JSON.stringify([fname]));
+    fd.append("files", new Blob([body], { type: "text/markdown" }), fname);
+    const r = await fetch(DRIVE_BASE + "/api/drive/upload-batch", { method: "POST", credentials: "include", body: fd });
+    if (!r.ok) throw new Error(r.status === 403 ? t("need_admin") : "HTTP " + r.status);
+    toast("💾 " + t("exported"));
+  } catch (e) { toast("Drive: " + e.message); }
+}

@@ -281,4 +281,6 @@ if WEB_DIR.exists():
     async def index():
         return (WEB_DIR / "index.html").read_text(encoding="utf-8")
 
-    app.mount("/static", StaticFiles(directory=str(WEB_DIR)), name="web")
+    # /hc-static (NOT /static): avoids collision with the Drive's /static/*
+    # when both are served behind lab.hitech.tn via the edge worker.
+    app.mount("/hc-static", StaticFiles(directory=str(WEB_DIR)), name="web")
