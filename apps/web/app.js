@@ -1,15 +1,29 @@
 /* HiTech Client — universal frontend. Speaks ONLY the stable /api/hc/* API. */
 let SID = null, BACKENDS = [], sending = false;
 
+/* API base: same-origin on web/desktop; absolute backend when the UI is
+   bundled (Capacitor/file). Override: localStorage["hcf-api"]. */
+const HCF_API = (() => {
+  try {
+    const saved = localStorage.getItem("hcf-api");
+    if (saved) return saved.replace(/\/$/, "");
+  } catch {}
+  const p = (location.protocol || "").toLowerCase();
+  if (p === "capacitor:" || p === "file:" || p === "ionic:") {
+    return "https://client.hitech.tn";
+  }
+  return "";
+})();
+
 /* ---------- i18n (FR/TN) ---------- */
 const STR = {
   fr: { newchat: "＋ Nouvelle conversation", sub: "framework universel",
         ph: "Écris ou dicte ton message… (Entrée = envoyer)",
-        drive_title: "📁 HiTech Drive", copied: "Copié.", need_admin: "Connectez-vous admin sur le Drive d'abord.",
+        drive_title: "📁 HiTech Drive", login_msg: "Accès protégé — entre le token.", copied: "Copié.", need_admin: "Connectez-vous admin sur le Drive d'abord.",
         exported: "Exporté vers le Drive.", empty: "Aucune conversation.", novideo: "Joignez une vidéo d'abord." },
   tn: { newchat: "＋ Conversation jdida", sub: "framework lel kol",
         ph: "Ekteb wela ahki… (Entrée = teb3ath)",
-        drive_title: "📁 HiTech Drive", copied: "Tnassakh.", need_admin: "Connecti admin fel Drive 9bal.",
+        drive_title: "📁 HiTech Drive", login_msg: "Da5el el token.", copied: "Tnassakh.", need_admin: "Connecti admin fel Drive 9bal.",
         exported: "Tsavvegar fel Drive.", empty: "Ma famma chay.", novideo: "Zid vidéo 9bal." },
 };
 let LANG = localStorage.getItem("hcf-lang") || "fr";
@@ -26,8 +40,29 @@ function toggleLang() {
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
+let HCF_TOKEN = null;
+try { HCF_TOKEN = localStorage.getItem("hcf-token"); } catch {}
+function hurl(path) {
+  let url = HCF_API + path;
+  if (HCF_API && HCF_TOKEN && !/[?&]token=/.test(url)) {
+    url += (url.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(HCF_TOKEN);
+  }
+  return url;
+}
+async function bundleLogin() {
+  const v = $("loginToken").value.trim();
+  if (!v) return;
+  try {
+    const r = await fetch(HCF_API + "/api/hc/health?token=" + encodeURIComponent(v));
+    if (!r.ok) throw new Error("refusé");
+    HCF_TOKEN = v;
+    try { localStorage.setItem("hcf-token", v); } catch {}
+    $("loginOverlay").classList.add("hidden");
+    await boot();
+  } catch (e) { $("loginErr").textContent = "Token invalide."; }
+}
 async function api(path, opts = {}) {
-  const r = await fetch(path, opts);
+  const r = await fetch(hurl(path), opts);
   if (!r.ok) { let m = r.status; try { m = (await r.json()).detail || m; } catch {} throw new Error(m); }
   return r.json();
 }
@@ -115,7 +150,7 @@ $("vidFile").addEventListener("change", async () => {
   try {
     const fd = new FormData();
     fd.append("file", f); fd.append("fps", "1"); fd.append("max_frames", "20");
-    const r = await fetch("/api/hc/media/video-frames", { method: "POST", body: fd });
+    const r = await fetch(hurl("/api/hc/media/video-frames"), { method: "POST", body: fd });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const d = await r.json();
     pendingImages = (d.frames || []).map(x => ({ type: "image_url", url: x.url }));
@@ -145,7 +180,7 @@ async function dictate() {
         const fd = new FormData();
         fd.append("file", blob, "dictation.webm"); fd.append("tier", "local"); fd.append("lang", "ar");
         btn.textContent = "⏳";
-        const r = await fetch("/api/hc/media/transcribe", { method: "POST", body: fd });
+        const r = await fetch(hurl("/api/hc/media/transcribe"), { method: "POST", body: fd });
         if (!r.ok) throw new Error("HTTP " + r.status);
         const d = await r.json();
         $("input").value = ($("input").value ? $("input").value + " " : "") + (d.text || "");
@@ -165,7 +200,7 @@ function toggleTTS() {
 }
 async function speakText(text) {
   try {
-    const r = await fetch("/api/hc/media/speak", {
+    const r = await fetch(hurl("/api/hc/media/speak"), {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: text.slice(0, 1500) })
     });
@@ -194,7 +229,7 @@ async function send() {
   sending = true;
   const box = addMsg("assistant", [{ type: "text", text: "…" }]);
   try {
-    const r = await fetch(`/api/hc/sessions/${SID}/messages`, {
+    const r = await fetch(hurl(`/api/hc/sessions/${SID}/messages`), {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: parts, backend: $("backendSel").value, model: $("modelSel").value })
     });
@@ -226,7 +261,21 @@ async function send() {
 $("input").addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
 });
-(async () => { applyLang(); try { await refreshBackends(); } catch (e) { $("connDot").textContent = "🔴 " + e.message; } await refreshSessions(); })();
+async function boot() {
+  applyLang();
+  try { await refreshBackends(); } catch (e) { $("connDot").textContent = "🔴 " + e.message; }
+  await refreshSessions();
+}
+(async () => {
+  if (HCF_API) {
+    let ok = false;
+    if (HCF_TOKEN) {
+      try { const r = await fetch(HCF_API + "/api/hc/health?token=" + encodeURIComponent(HCF_TOKEN)); ok = r.ok; } catch {}
+    }
+    if (!ok) { applyLang(); $("loginOverlay").classList.remove("hidden"); return; }
+  }
+  await boot();
+})();
 
 /* ---------- HiTech Drive integration ---------- */
 const DRIVE_BASE = "https://lab.hitech.tn";

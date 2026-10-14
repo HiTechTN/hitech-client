@@ -9,6 +9,7 @@ WorkingDirectory=/data/hitech-client/server
 Environment=HCF_PORT=8096
 Environment=HCF_HOST=0.0.0.0
 Environment=HCF_DATA_DIR=/data/hitech-client/data
+Environment=HCF_CORS=capacitor://localhost,https://client.hitech.tn,https://lab.hitech.tn
 EnvironmentFile=/data/hitech-client/.env.service
 ExecStart=/data/hitech-client/.venv/bin/python -m uvicorn hcf.app:app --host 0.0.0.0 --port 8096 --app-dir /data/hitech-client/server
 Restart=always

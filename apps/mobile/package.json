@@ -1,0 +1,17 @@
+{
+  "name": "hitech-client-mobile",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build:web": "rm -rf www && cp -r ../web www && sed -i 's|/hc-static/|./|g' www/index.html && grep -o '\\./[a-z]*\\.[a-z]*' www/index.html | head -4",
+    "sync": "npx cap sync android",
+    "apk": "npm run build:web && npm run sync && cd android && ./gradlew assembleDebug"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7",
+    "@capacitor/android": "^7"
+  }
+}

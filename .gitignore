@@ -13,3 +13,10 @@ dist/
 workspace/*
 !workspace/.gitkeep
 apps/desktop/src-tauri/target/
+apps/mobile/www/
+apps/mobile/android/build/
+apps/mobile/android/.gradle/
+apps/mobile/android/app/build/
+apps/mobile/android/local.properties
+.home/.cache/
+.home/.npm/

@@ -1,0 +1,8 @@
+{
+  "appId": "tn.hitech.client",
+  "appName": "HiTech Client",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
+}
