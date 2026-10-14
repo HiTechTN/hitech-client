@@ -26,6 +26,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .adapters.base import AdapterRegistry
+from .adapters.opencode import OpenCodeAdapter
 from .adapters.openai_compat import OpenAICompatAdapter
 from .config import get_config
 from .store import Store
@@ -44,6 +45,11 @@ if cfg.openrouter.api_key:
         id="openrouter", label="OpenRouter (cloud)",
         base_url=cfg.openrouter.base_url, api_key=cfg.openrouter.api_key,
         default_model=cfg.openrouter.model))
+if cfg.opencode.enabled:
+    registry.register(OpenCodeAdapter(
+        base_url=cfg.opencode.base_url, store=store,
+        default_provider=cfg.opencode.provider,
+        default_model=cfg.opencode.model))
 
 app = FastAPI(title="HiTech Client Framework")
 if cfg.server.cors_origins:
@@ -171,7 +177,7 @@ async def post_message(sid: str, body: MessageIn, request: Request, stream: bool
         try:
             async for ev in adapter.chat_stream(
                     model=model, messages=history, system=body.system,
-                    temperature=body.temperature):
+                    temperature=body.temperature, session_key=sid):
                 if ev.get("type") == "delta" and ev.get("text"):
                     full.append(ev["text"])
                 if ev.get("type") == "done" and not full and ev.get("full_text"):
@@ -189,7 +195,7 @@ async def post_message(sid: str, body: MessageIn, request: Request, stream: bool
         err = ""
         async for ev in adapter.chat_stream(
                 model=model, messages=history, system=body.system,
-                temperature=body.temperature):
+                temperature=body.temperature, session_key=sid):
             if ev.get("type") == "delta":
                 chunks.append(ev.get("text", ""))
             elif ev.get("type") == "error":

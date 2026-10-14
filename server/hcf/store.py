@@ -36,6 +36,11 @@ class Store:
                     created INTEGER
                 );
                 CREATE INDEX IF NOT EXISTS idx_msg_session ON messages(session_id, created);
+                CREATE TABLE IF NOT EXISTS session_links (
+                    hcf_id TEXT PRIMARY KEY,
+                    oc_id TEXT NOT NULL,
+                    updated INTEGER
+                );
             """)
             self._conn.commit()
 
@@ -80,9 +85,24 @@ class Store:
     def delete_session(self, sid: str) -> bool:
         with self._lock:
             self._conn.execute("DELETE FROM messages WHERE session_id=?", (sid,))
+            self._conn.execute("DELETE FROM session_links WHERE hcf_id=?", (sid,))
             cur = self._conn.execute("DELETE FROM sessions WHERE id=?", (sid,))
             self._conn.commit()
         return cur.rowcount > 0
+
+    # -- backend session links (e.g. HCF sid -> OpenCode sid) -------------
+    def get_link(self, hcf_id: str) -> str | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT oc_id FROM session_links WHERE hcf_id=?", (hcf_id,)).fetchone()
+        return row["oc_id"] if row else None
+
+    def set_link(self, hcf_id: str, oc_id: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO session_links VALUES (?,?,?)",
+                (hcf_id, oc_id, _now()))
+            self._conn.commit()
 
     # -- messages ------------------------------------------------------
     def add_message(self, session_id: str, role: str, content: list[dict]) -> dict:

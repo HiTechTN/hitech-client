@@ -1,0 +1,16 @@
+[Unit]
+Description=OpenCode headless server (HCF backend, localhost only)
+After=network.target
+
+[Service]
+Type=simple
+User=hitech
+WorkingDirectory=/data/hitech-client/workspace
+# Isolated HOME: own opencode config/sessions, zero impact on interactive use
+Environment=HOME=/data/hitech-client/.home
+ExecStart=/usr/bin/opencode serve --port 4097 --hostname 127.0.0.1
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

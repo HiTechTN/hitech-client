@@ -85,7 +85,9 @@ class OpenAICompatAdapter(AdapterInterface):
 
     async def chat_stream(self, *, model: str, messages: list[dict],
                           system: str | None = None,
-                          temperature: float = 0.7) -> AsyncIterator[dict]:
+                          temperature: float = 0.7,
+                          session_key: str = "") -> AsyncIterator[dict]:
+        _ = session_key  # stateless backend: history comes in messages[]
         payload = {"model": model or self.default_model,
                    "messages": self._to_openai(messages, system),
                    "temperature": temperature, "stream": True}

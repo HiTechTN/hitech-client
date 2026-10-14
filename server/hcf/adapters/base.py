@@ -55,8 +55,10 @@ class AdapterInterface(ABC):
     @abstractmethod
     def chat_stream(self, *, model: str, messages: list[dict],
                     system: str | None = None,
-                    temperature: float = 0.7) -> AsyncIterator[dict]:
-        """Yield normalized events (delta/done/error). Must be an async generator."""
+                    temperature: float = 0.7,
+                    session_key: str = "") -> AsyncIterator[dict]:
+        """Yield normalized events (delta/done/error). Must be an async generator.
+        session_key lets stateful backends (agent sessions) map HCF<->backend."""
 
     async def abort(self, job_id: str) -> None:
         """Best-effort cancel. Default: no-op (stateless HTTP backends)."""

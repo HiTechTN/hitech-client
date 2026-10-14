@@ -23,6 +23,14 @@ class OpenRouterCfg:
 
 
 @dataclass
+class OpenCodeCfg:
+    base_url: str = "http://127.0.0.1:4097"
+    enabled: bool = True
+    provider: str = "ollama-local"
+    model: str = "qwen2.5:7b-instruct"
+
+
+@dataclass
 class ServerCfg:
     host: str = "127.0.0.1"
     port: int = 8096
@@ -37,6 +45,7 @@ class HCFConfig:
     server: ServerCfg
     ollama: OllamaCfg
     openrouter: OpenRouterCfg
+    opencode: OpenCodeCfg
 
     @classmethod
     def from_env(cls) -> "HCFConfig":
@@ -61,6 +70,12 @@ class HCFConfig:
                 base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
                 api_key=os.getenv("OPENROUTER_API_KEY", ""),
                 model=os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.1-8b-instruct:free"),
+            ),
+            opencode=OpenCodeCfg(
+                base_url=os.getenv("OC_BASE_URL", "http://127.0.0.1:4097"),
+                enabled=os.getenv("OC_ENABLED", "true").lower() not in ("0", "false", "no"),
+                provider=os.getenv("OC_PROVIDER", "ollama-local"),
+                model=os.getenv("OC_MODEL", "qwen2.5:7b-instruct"),
             ),
         )
 
