@@ -24,8 +24,8 @@ class OpenCodeAdapter(AdapterInterface):
     label = "OpenCode (agent)"
 
     def __init__(self, base_url: str, store,
-                 default_provider: str = "ollama-local",
-                 default_model: str = "qwen2.5:7b-instruct",
+                 default_provider: str = "openrouter-free",
+                 default_model: str = "cohere/north-mini-code:free",
                  timeout: float = 300.0):
         self.base_url = base_url.rstrip("/")
         self.store = store

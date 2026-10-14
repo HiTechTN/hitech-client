@@ -8,6 +8,8 @@ User=hitech
 WorkingDirectory=/data/hitech-client/workspace
 # Isolated HOME: own opencode config/sessions, zero impact on interactive use
 Environment=HOME=/data/hitech-client/.home
+# Provider keys (gitignored, 0600): OPENROUTER_API_KEY for cloud agent models
+EnvironmentFile=/data/hitech-client/.env.service
 ExecStart=/usr/bin/opencode serve --port 4097 --hostname 127.0.0.1
 Restart=always
 RestartSec=3

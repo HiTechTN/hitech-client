@@ -26,8 +26,8 @@ class OpenRouterCfg:
 class OpenCodeCfg:
     base_url: str = "http://127.0.0.1:4097"
     enabled: bool = True
-    provider: str = "ollama-local"
-    model: str = "qwen2.5:7b-instruct"
+    provider: str = "openrouter-free"
+    model: str = "cohere/north-mini-code:free"
 
 
 @dataclass
@@ -74,8 +74,8 @@ class HCFConfig:
             opencode=OpenCodeCfg(
                 base_url=os.getenv("OC_BASE_URL", "http://127.0.0.1:4097"),
                 enabled=os.getenv("OC_ENABLED", "true").lower() not in ("0", "false", "no"),
-                provider=os.getenv("OC_PROVIDER", "ollama-local"),
-                model=os.getenv("OC_MODEL", "qwen2.5:7b-instruct"),
+                provider=os.getenv("OC_PROVIDER", "openrouter-free"),
+                model=os.getenv("OC_MODEL", "cohere/north-mini-code:free"),
             ),
         )
 

@@ -9,3 +9,6 @@ data/
 node_modules/
 dist/
 .env.service
+.home/.local/
+workspace/*
+!workspace/.gitkeep
