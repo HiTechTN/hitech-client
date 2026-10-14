@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HiTech Client — Framework Universel</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+</head>
+<body>
+<aside id="side">
+  <div class="side-head"><span class="logo">H</span><div><b>HiTech Client</b><small>framework universel</small></div></div>
+  <button class="btn primary wide" onclick="newSession()">＋ Nouvelle conversation</button>
+  <div id="sessions"></div>
+  <div class="side-foot muted">backend: <span id="connDot">…</span></div>
+</aside>
+<main id="main">
+  <header id="chatHead">
+    <select id="backendSel" title="Backend"></select>
+    <select id="modelSel" title="Modèle"></select>
+    <span id="caps" class="muted"></span>
+  </header>
+  <div id="msgs"></div>
+  <div id="composer">
+    <textarea id="input" rows="2" placeholder="Écris ton message… (Entrée = envoyer)"></textarea>
+    <button class="btn primary" onclick="send()">➤</button>
+  </div>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

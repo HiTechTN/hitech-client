@@ -1,0 +1,16 @@
+[Unit]
+Description=HiTech Client Framework (universal AI client)
+After=network.target
+
+[Service]
+Type=simple
+User=hitech
+WorkingDirectory=/data/hitech-client/server
+Environment=HCF_PORT=8096
+Environment=HCF_DATA_DIR=/data/hitech-client/data
+ExecStart=/data/hitech-client/.venv/bin/python -m uvicorn hcf.app:app --host 127.0.0.1 --port 8096 --app-dir /data/hitech-client/server
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
