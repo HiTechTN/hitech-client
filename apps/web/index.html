@@ -21,10 +21,16 @@
     <span id="caps" class="muted"></span>
   </header>
   <div id="msgs"></div>
+  <div id="pending" class="muted hidden"></div>
   <div id="composer">
-    <textarea id="input" rows="2" placeholder="Écris ton message… (Entrée = envoyer)"></textarea>
+    <button class="btn" id="vidBtn" onclick="attachVideo()" title="Joindre une vidéo (frames)">🎥</button>
+    <button class="btn" id="micBtn" onclick="dictate()" title="Dicter (voix → texte)">🎤</button>
+    <input type="file" id="vidFile" accept="video/*" class="hidden">
+    <textarea id="input" rows="2" placeholder="Écris ou dicte ton message… (Entrée = envoyer)"></textarea>
+    <button class="btn" id="ttsBtn" onclick="toggleTTS()" title="Lire les réponses à voix haute">🔊</button>
     <button class="btn primary" onclick="send()">➤</button>
   </div>
+  <audio id="ttsAudio" class="hidden"></audio>
 </main>
 <script src="/static/app.js"></script>
 </body>

@@ -42,7 +42,7 @@ Variables : `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_VISION_MODEL`,
 
 - [x] Phase 0 — core + adapter OpenAI-compatible (Ollama/OpenRouter, SSE, vision)
 - [ ] Phase 1 — `OpenCodeAdapter` (tools/agents dans la même UI)
-- [ ] Phase 2 — médias : record écran → frames+transcript · 🎤 voix (navigateur / whisper local / Gemini audio) + TTS ar-TN
+- [x] Phase 2 — médias : vidéo → frames (ffmpeg) · 🎤 dictée (whisper local ar) + navigateur · 🔊 TTS ar-TN (Gemini audio : phase suivante)
 - [ ] Phase 3 — Drive intégré · UI Darija · `lab.hitech.tn/client/`
 - [ ] Wrappers Tauri (desktop) + Capacitor (mobile) sur `apps/web`
 

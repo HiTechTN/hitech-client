@@ -29,6 +29,8 @@ from .adapters.base import AdapterRegistry
 from .adapters.opencode import OpenCodeAdapter
 from .adapters.openai_compat import OpenAICompatAdapter
 from .config import get_config
+from .media import video as media_video
+from .media import voice as media_voice
 from .store import Store
 
 cfg = get_config()
@@ -266,6 +268,10 @@ async def token_gate(request: Request, call_next):
     if path.startswith("/api/"):
         return JSONResponse({"detail": "auth requise"}, status_code=401)
     return RedirectResponse("/login", status_code=303)
+
+
+app.include_router(media_video.router)
+app.include_router(media_voice.router)
 
 
 # ---- serve the web UI (same process; desktop/mobile wrap the same files) ---

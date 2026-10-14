@@ -21,7 +21,11 @@
 .msg pre code{background:none;padding:0}
 .msg h1,.msg h2,.msg h3{color:var(--acc);margin:.5rem 0}
 .msg .im{display:block;max-width:100%;border-radius:8px;margin:.3rem 0}
-#composer{display:flex;gap:.5rem;padding:.8rem 1rem;border-top:1px solid var(--line);background:var(--panel)}
+#composer{display:flex;gap:.5rem;padding:.8rem 1rem;border-top:1px solid var(--line);background:var(--panel);align-items:flex-end}
+#composer .btn.off{opacity:.45}
+#pending{padding:.4rem 1rem;border-top:1px solid var(--line);background:var(--panel)}
+#micBtn.rec{background:#b91c1c;border-color:#b91c1c;animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.5}}
 #input{flex:1;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:.6rem;resize:vertical;font-size:.92rem}
 .btn{border:1px solid var(--line);background:var(--panel2);color:var(--txt);padding:.55rem 1rem;border-radius:8px;cursor:pointer;font-weight:600}
 .btn:hover{filter:brightness(1.2)}.btn.primary{background:#0284c7;border-color:#0284c7}.btn.wide{width:100%}
