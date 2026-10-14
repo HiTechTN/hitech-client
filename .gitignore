@@ -12,3 +12,4 @@ dist/
 .home/.local/
 workspace/*
 !workspace/.gitkeep
+apps/desktop/src-tauri/target/
