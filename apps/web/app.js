@@ -74,7 +74,8 @@ function hurl(path) {
   return url;
 }
 function authHeaders() {
-  return USER_TOKEN ? { "Authorization": "Bearer " + USER_TOKEN } : {};
+  const tok = USER_TOKEN || HCF_TOKEN;
+  return tok ? { "Authorization": "Bearer " + tok } : {};
 }
 async function bundleLogin() {
   const v = $("loginToken").value.trim();
@@ -84,6 +85,7 @@ async function bundleLogin() {
     if (!r.ok) throw new Error("refusé");
     HCF_TOKEN = v;
     try { localStorage.setItem("hcf-token", v); } catch {}
+    document.cookie = `hcf_token=${encodeURIComponent(v)}; path=/; max-age=${365 * 24 * 3600}; SameSite=Lax`;
     $("loginOverlay").classList.add("hidden");
     await boot();
   } catch (e) { $("loginErr").textContent = "Token invalide."; }
