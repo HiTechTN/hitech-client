@@ -55,10 +55,11 @@ if cfg.opencode.enabled:
         default_model=cfg.opencode.model))
 
 app = FastAPI(title="HiTech Client Framework")
-if cfg.server.cors_origins:
-    app.add_middleware(
-        CORSMiddleware, allow_origins=cfg.server.cors_origins,
-        allow_methods=["*"], allow_headers=["*"])
+# CORS: universal clients (mobile bundle, desktop launcher, custom UIs) may
+# call any HCF server. Echo the origin + allow credentials (cookies/tokens).
+app.add_middleware(
+    CORSMiddleware, allow_origin_regex=".*", allow_credentials=True,
+    allow_methods=["*"], allow_headers=["*"])
 
 
 def _as_parts(content) -> list[dict]:
@@ -366,6 +367,8 @@ async def login(token: str = Form("")):
 
 @app.middleware("http")
 async def token_gate(request: Request, call_next):
+    if request.method == "OPTIONS":  # CORS preflight
+        return await call_next(request)
     if not _want_token():
         return await call_next(request)
     path = request.url.path

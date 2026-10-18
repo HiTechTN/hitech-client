@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HiTech Client — Serveur</title>
+<style>
+  :root{--bg:#0b1220;--panel:#111c30;--line:#24344f;--acc:#38bdf8;--mut:#8ba0bd}
+  *{box-sizing:border-box}
+  body{font-family:system-ui,sans-serif;background:var(--bg);color:#e8f0fc;height:100vh;display:flex;align-items:center;justify-content:center;margin:0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:2rem;width:min(400px,92vw)}
+  h1{margin:0 0 .3rem;font-size:1.3rem;color:var(--acc)}
+  .sub{color:var(--mut);font-size:.85rem;margin:0 0 1.2rem}
+  label{font-size:.78rem;color:var(--mut);display:block;margin-bottom:.3rem}
+  input{width:100%;padding:.65rem;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:#fff;font-size:.95rem;margin-bottom:.9rem}
+  input:focus{outline:none;border-color:var(--acc)}
+  button{width:100%;padding:.65rem;border-radius:8px;border:0;background:var(--acc);color:#062033;font-weight:600;font-size:.95rem;cursor:pointer}
+  button:hover{filter:brightness(1.1)}
+  .hint{color:var(--mut);font-size:.75rem;margin:.9rem 0 0;line-height:1.5}
+  .flag{font-size:.8rem;color:var(--mut);text-align:center;margin-top:1.2rem}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🇹🇳 HiTech Client</h1>
+  <p class="sub">Sa7bek AI — el kol fi blast wa7da</p>
+  <label for="srv">Adresse du serveur HCF</label>
+  <input id="srv" placeholder="https://client.hitech.tn" spellcheck="false">
+  <button onclick="go()">Connexion ➤</button>
+  <p class="hint">Par défaut : <b>client.hitech.tn</b>.<br>
+  Tu as ton propre serveur HCF ? Mets son adresse ici —<br>
+  tu pourras la changer à tout moment depuis l'écran de connexion (🌐 Serveur).</p>
+  <p class="flag">open-source · MIT · Made in Tunisia</p>
+</div>
+<script>
+  const inp = document.getElementById("srv");
+  try { inp.value = localStorage.getItem("hcf-last-server") || "https://client.hitech.tn"; } catch {}
+  function go() {
+    let v = (inp.value || "").trim().replace(/\/+$/, "");
+    if (!v) v = "https://client.hitech.tn";
+    if (!/^https?:\/\//i.test(v)) v = "https://" + v;
+    try { localStorage.setItem("hcf-last-server", v); } catch {}
+    location.href = v + "/";
+  }
+  inp.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+  inp.focus();
+</script>
+</body>
+</html>

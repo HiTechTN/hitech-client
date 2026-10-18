@@ -1,7 +1,7 @@
 {
   "name": "hitech-client-mobile",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "scripts": {
     "build:web": "rm -rf www && cp -r ../web www && sed -i 's|/hc-static/|./|g' www/index.html && grep -o '\\./[a-z]*\\.[a-z]*' www/index.html | head -4",
     "sync": "npx cap sync android",

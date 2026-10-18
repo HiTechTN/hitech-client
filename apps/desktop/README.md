@@ -1,29 +1,27 @@
 # HCF Desktop (Tauri)
 
-Fenêtre native autour du serveur HCF local. Même UI que le web,
-micro + capture d'écran fonctionnent dans la webview.
+Fenêtre native universelle : au lancement, un **écran de connexion** demande
+l'adresse du serveur HCF (par défaut `https://client.hitech.tn` — tu peux mettre
+ton propre serveur). Le choix est mémorisé, et modifiable à tout moment depuis
+l'écran de connexion de l'app (🌐 Serveur).
 
-## Prérequis
+## Prérequis (build from source)
 
 ```bash
 sudo apt install libwebkit2gtk-4.1-dev build-essential libssl-dev \
-  libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+  libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 ```
 
 ## Build
 
 ```bash
 cd apps/desktop
-npm i
-npx tauri build   # → src-tauri/target/release/bundle/deb/*.deb
+npm ci
+npx tauri build   # → src-tauri/target/release/bundle/{deb,appimage}/…
 ```
 
-## Installer / lancer
+## Comment ça marche
 
-```bash
-sudo dpkg -i "src-tauri/target/release/bundle/deb/HiTech Client_0.1.0_amd64.deb"
-hitech-client   # ou via le menu Applications
-```
-
-Nécessite `hitech-client.service` actif sur `http://127.0.0.1:8096`
-(la fenêtre s'y connecte : login token, chat, médias, Drive).
+- `launcher.html` (bundled depuis `apps/web/`) : choisit le serveur → navigue
+- La fenêtre charge ensuite l'UI du serveur choisi (same-origin, cookies OK)
+- Micro + capture d'écran fonctionnent dans la webview

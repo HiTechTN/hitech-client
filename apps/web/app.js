@@ -140,6 +140,18 @@ function oauthGo(provider) {
   location.href = `${base}/api/hc/auth/oauth/${provider}/start`;
   return false;
 }
+/* universal: change the HCF server (desktop launcher / mobile / custom UI) */
+function saveServer() {
+  let v = ($("loginServer").value || "").trim().replace(/\/+$/, "");
+  if (!v) v = "";
+  if (v && !/^https?:\/\//i.test(v)) v = "https://" + v;
+  try {
+    if (v) localStorage.setItem("hcf-api", v);
+    else localStorage.removeItem("hcf-api");
+  } catch {}
+  location.reload();
+}
+try { $("loginServer").value = HCF_API || location.origin; } catch {}
 async function loadMe() {
   try {
     const r = await fetch(hurl("/api/hc/me"), { credentials: "include", headers: authHeaders() });
