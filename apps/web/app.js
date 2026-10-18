@@ -1,6 +1,17 @@
 /* HiTech Client — universal frontend. Speaks ONLY the stable /api/hc/* API. */
 let SID = null, BACKENDS = [], sending = false;
 
+/* Default persona: Tunisian Darija (Arabic script -> clean ar-TN TTS),
+   follows the user's language when they write in another one. */
+const DARIJA_SYS =
+  "Tu es HiTech Client, un assistant IA tunisien. RÈGLE DE LANGUE (très importante) : " +
+  "par défaut, réponds en darija tunisienne ÉCRITE EN LETTRES ARABES, jamais en " +
+  "lettres latines (pas d'arabizi). Exemple de style attendu : « شنوة الأحوال؟ لاباس " +
+  "عليا الحمد لله. شنوة تحب نعملك؟ » — garde les mots techniques français tels quels " +
+  "(ex: الكود، الـ serveur، الـ fichier). Si l'utilisateur écrit dans une autre langue " +
+  "(français, anglais, arabe standard…), réponds dans CETTE langue. " +
+  "Ton clair, direct et utile.";
+
 /* API base: same-origin on web/desktop; absolute backend when the UI is
    bundled (Capacitor/file). Override: localStorage["hcf-api"]. */
 const HCF_API = (() => {
@@ -161,14 +172,86 @@ function renderParts(parts) {
     return `<p class="muted">[${esc(p.type)}]</p>`;
   }).join("");
 }
-function addMsg(role, parts) {
+function addMsg(role, parts, raw) {
   hideWelcome();
   const d = document.createElement("div");
   d.className = "msg " + role;
   d.innerHTML = renderParts(parts);
+  if (raw) d.dataset.raw = raw;
+  if (role === "assistant" && raw) addActions(d);
   $("msgs").appendChild(d);
   $("msgs").scrollTop = $("msgs").scrollHeight;
   return d;
+}
+
+/* ---------- per-message actions ---------- */
+function addActions(box) {
+  const bar = document.createElement("div");
+  bar.className = "macts";
+  bar.innerHTML = `
+    <button onclick="playMsg(this)" title="Écouter / arrêter">🔊</button>
+    <button onclick="regenMsg(this)" title="Régénérer la réponse">🔄</button>
+    <button onclick="copyMsg(this)" title="Copier">📋</button>
+    <button onclick="shareMsg(this,'md')" title="Partager en Markdown">MD</button>
+    <button onclick="shareMsg(this,'html')" title="Partager en HTML">HTML</button>
+    <button onclick="shareMsg(this,'pdf')" title="Imprimer / PDF">PDF</button>`;
+  box.appendChild(bar);
+}
+let curPlayBtn = null;
+async function playMsg(btn) {
+  if (curPlayBtn === btn) {  // stop
+    playSeq++;  // annule tout chargement TTS en cours
+    $("ttsAudio").pause();
+    btn.textContent = "🔊"; curPlayBtn = null;
+    return;
+  }
+  if (curPlayBtn) { playSeq++; $("ttsAudio").pause(); curPlayBtn.textContent = "🔊"; }
+  const raw = btn.closest(".msg").dataset.raw || "";
+  if (!raw.trim()) return;
+  curPlayBtn = btn; btn.textContent = "⏹";
+  await speakText(raw, () => { if (curPlayBtn === btn) { btn.textContent = "🔊"; curPlayBtn = null; } });
+}
+async function regenMsg(btn) {
+  if (sending) return;
+  const box = btn.closest(".msg");
+  const all = [...document.querySelectorAll("#msgs .msg")];
+  if (all[all.length - 1] !== box) { toast(LANG === "tn" ? "Régénéri el réponse el lakhera ken." : "Régénère la dernière réponse seulement."); return; }
+  sending = true;
+  box.remove();
+  const nb = addMsg("assistant", [{ type: "text", text: "…" }]);
+  try {
+    await streamInto(SID, { content: [{ type: "text", text: "(régénère)" }],
+                            backend: $("backendSel").value, model: $("modelSel").value,
+                            system: DARIJA_SYS, regen: true }, nb);
+  } catch (e) { nb.innerHTML = `<p class="muted">Erreur: ${esc(e.message)}</p>`; }
+  sending = false;
+}
+async function copyMsg(btn) {
+  const raw = btn.closest(".msg").dataset.raw || "";
+  try { await navigator.clipboard.writeText(raw); toast("📋 " + t("copied")); }
+  catch { toast("Copie impossible"); }
+}
+function dlBlob(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+function shareMsg(btn, fmt) {
+  const box = btn.closest(".msg");
+  const raw = box.dataset.raw || "";
+  const title = (document.querySelector(".sess.on")?.querySelector(".sess-t")?.textContent || "reponse").trim().slice(0, 40) || "reponse";
+  if (fmt === "md") { dlBlob(new Blob([raw], { type: "text/markdown" }), title + ".md"); return; }
+  const body = window.marked ? marked.parse(raw) : `<pre>${esc(raw)}</pre>`;
+  const html = `<!DOCTYPE html><html lang="fr"><meta charset="utf-8"><title>${esc(title)}</title>
+<style>body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;line-height:1.6;color:#1a1a2e}
+h1{color:#0284c7}pre{background:#f4f4f8;padding:.7rem;border-radius:8px;overflow:auto}code{background:#f4f4f8;padding:.1rem .3rem;border-radius:4px}
+footer{color:#888;font-size:.8rem;margin-top:2rem;border-top:1px solid #ddd;padding-top:.5rem}</style>
+<h1>${esc(title)}</h1>${body}<footer>HiTech Client — ${new Date().toLocaleString()}</footer></html>`;
+  if (fmt === "html") { dlBlob(new Blob([html], { type: "text/html" }), title + ".html"); return; }
+  const w = window.open("", "_blank");
+  if (!w) { toast("Popup bloquée"); return; }
+  w.document.write(html); w.document.close();
+  setTimeout(() => { try { w.print(); } catch {} }, 500);
 }
 
 /* ---------- Welcome screen ---------- */
@@ -295,7 +378,10 @@ async function newSession() {
 async function openSession(id) {
   SID = id; $("msgs").innerHTML = "";
   const d = await api(`/api/hc/sessions/${id}/messages`);
-  for (const m of (d.messages || [])) addMsg(m.role, m.content);
+  for (const m of (d.messages || [])) {
+    const raw = (m.content || []).filter(p => p.type === "text").map(p => p.text).join("\n\n");
+    addMsg(m.role, m.content, m.role === "assistant" ? raw : "");
+  }
   if (!document.querySelector("#msgs .msg")) showWelcome();
   await refreshSessions();
 }
@@ -368,23 +454,58 @@ function toggleTTS() {
   $("ttsBtn").classList.toggle("off", !ttsOn);
   if (!ttsOn) { $("ttsAudio").pause(); }
 }
-async function speakText(text) {
+let playSeq = 0;
+async function speakText(text, onend) {
+  const seq = ++playSeq;
   try {
     const r = await fetch(hurl("/api/hc/media/speak"), {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({ text: text.slice(0, 1500) })
     });
-    if (!r.ok) return;
+    if (!r.ok) { if (onend) onend(); return; }
     const blob = await r.blob();
+    if (seq !== playSeq) { if (onend) onend(); return; }  // stop cliqué pendant le chargement
     const a = $("ttsAudio");
     a.src = URL.createObjectURL(blob);
-    await a.play().catch(() => {});
-  } catch {}
+    a.onended = () => { if (onend) onend(); };
+    await a.play().catch(() => { if (onend) onend(); });
+  } catch { if (onend) onend(); }
 }
 function plainText(parts) {
   return (parts || []).filter(p => p.type === "text").map(p => p.text).join(" ")
     .replace(/[#*`>|[\]()]/g, "").slice(0, 1500);
+}
+
+async function streamInto(sid, bodyObj, box) {
+  const r = await fetch(hurl(`/api/hc/sessions/${sid}/messages`), {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(bodyObj)
+  });
+  if (!r.ok) { let m = "HTTP " + r.status; try { m = (await r.json()).detail || m; } catch {} throw new Error(m); }
+  const reader = r.body.getReader(), dec = new TextDecoder();
+  let buf = "", full = "";
+  const render = () => { try { box.innerHTML = window.marked ? marked.parse(full) : `<pre>${esc(full)}</pre>`; } catch { box.innerHTML = `<pre>${esc(full)}</pre>`; } $("msgs").scrollTop = $("msgs").scrollHeight; };
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const frames = buf.split("\n\n"); buf = frames.pop();
+    for (const f of frames) {
+      const line = f.trim();
+      if (!line.startsWith("data:")) continue;
+      try {
+        const ev = JSON.parse(line.slice(5));
+        if (ev.type === "delta" && ev.text) { full += ev.text; render(); }
+        else if (ev.type === "error") { full += `\n\n> ⚠ ${ev.message}`; render(); }
+      } catch {}
+    }
+  }
+  box.dataset.raw = full;
+  addActions(box);
+  if (!full.trim()) box.innerHTML = `<p class="muted">(réponse vide)</p>`;
+  else if (ttsOn) speakText(full);
 }
 
 async function send() {
@@ -400,32 +521,8 @@ async function send() {
   sending = true;
   const box = addMsg("assistant", [{ type: "text", text: "…" }]);
   try {
-    const r = await fetch(hurl(`/api/hc/sessions/${SID}/messages`), {
-      method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ content: parts, backend: $("backendSel").value, model: $("modelSel").value })
-    });
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    const reader = r.body.getReader(), dec = new TextDecoder();
-    let buf = "", full = "";
-    const render = () => { try { box.innerHTML = window.marked ? marked.parse(full) : `<pre>${esc(full)}</pre>`; } catch { box.innerHTML = `<pre>${esc(full)}</pre>`; } $("msgs").scrollTop = $("msgs").scrollHeight; };
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      const frames = buf.split("\n\n"); buf = frames.pop();
-      for (const f of frames) {
-        const line = f.trim();
-        if (!line.startsWith("data:")) continue;
-        try {
-          const ev = JSON.parse(line.slice(5));
-          if (ev.type === "delta" && ev.text) { full += ev.text; render(); }
-          else if (ev.type === "error") { full += `\n\n> ⚠ ${ev.message}`; render(); }
-        } catch {}
-      }
-    }
-    if (!full.trim()) box.innerHTML = `<p class="muted">(réponse vide)</p>`;
-    else if (ttsOn) speakText(full);
+    await streamInto(SID, { content: parts, backend: $("backendSel").value,
+                            model: $("modelSel").value, system: DARIJA_SYS }, box);
   } catch (e) { box.innerHTML = `<p class="muted">Erreur: ${esc(e.message)}</p>`; }
   sending = false;
   refreshSessions();

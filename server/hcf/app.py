@@ -87,6 +87,7 @@ class MessageIn(BaseModel):
     model: str = ""
     system: str | None = None
     temperature: float = 0.7
+    regen: bool = False  # regenerate: drop trailing assistant reply, re-answer
 
 
 class EmailIn(BaseModel):
@@ -274,7 +275,10 @@ async def post_message(sid: str, body: MessageIn, request: Request, stream: bool
     except KeyError:
         raise HTTPException(status_code=404, detail=f"unknown backend: {bid}")
     model = body.model or s.get("model") or ""
-    store.add_message(sid, "user", parts)
+    if body.regen:
+        store.delete_last_assistant(sid)
+    else:
+        store.add_message(sid, "user", parts)
     history = [{"role": m["role"], "content": m["content"]}
                for m in store.list_messages(sid)]
     if bid != (s.get("backend") or "") or (model and model != (s.get("model") or "")):

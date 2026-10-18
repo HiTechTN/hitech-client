@@ -65,6 +65,10 @@
 .msg pre code{background:none;padding:0}
 .msg h1,.msg h2,.msg h3{color:var(--acc);margin:.5rem 0}
 .msg .im{display:block;max-width:100%;border-radius:8px;margin:.3rem 0}
+/* per-message action bar */
+.macts{display:flex;gap:.3rem;margin-top:.55rem;padding-top:.45rem;border-top:1px solid var(--line);flex-wrap:wrap}
+.macts button{background:transparent;border:1px solid var(--line);color:var(--mut);font-size:.68rem;padding:.18rem .5rem;border-radius:6px;cursor:pointer;line-height:1.2}
+.macts button:hover{color:var(--acc);border-color:var(--acc)}
 #composer{display:flex;gap:.5rem;padding:.8rem 1rem;border-top:1px solid var(--line);background:var(--panel);align-items:flex-end}
 #composer .btn.off{opacity:.45}
 #pending{padding:.4rem 1rem;border-top:1px solid var(--line);background:var(--panel)}

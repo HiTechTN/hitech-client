@@ -182,6 +182,19 @@ class Store:
                 "DELETE FROM login_codes WHERE email=?", (email.strip().lower(),))
             self._conn.commit()
 
+    def delete_last_assistant(self, session_id: str) -> bool:
+        """Remove the trailing assistant message (regenerate). Only deletes
+        when the LAST message overall is an assistant one."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT id, role FROM messages WHERE session_id=? ORDER BY rowid DESC LIMIT 1",
+                (session_id,)).fetchone()
+            if not row or row["role"] != "assistant":
+                return False
+            self._conn.execute("DELETE FROM messages WHERE id=?", (row["id"],))
+            self._conn.commit()
+        return True
+
     # -- backend session links (e.g. HCF sid -> OpenCode sid) -------------
     def get_link(self, hcf_id: str) -> str | None:
         with self._lock:
