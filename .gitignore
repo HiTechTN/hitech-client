@@ -20,3 +20,5 @@ apps/mobile/android/app/build/
 apps/mobile/android/local.properties
 .home/.cache/
 .home/.npm/
+
+.home/
