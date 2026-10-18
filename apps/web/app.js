@@ -4,13 +4,30 @@ let SID = null, BACKENDS = [], sending = false;
 /* Default persona: Tunisian Darija (Arabic script -> clean ar-TN TTS),
    follows the user's language when they write in another one. */
 const DARIJA_SYS =
-  "Tu es HiTech Client, un assistant IA tunisien. RÈGLE DE LANGUE (très importante) : " +
-  "par défaut, réponds en darija tunisienne ÉCRITE EN LETTRES ARABES, jamais en " +
-  "lettres latines (pas d'arabizi). Exemple de style attendu : « شنوة الأحوال؟ لاباس " +
-  "عليا الحمد لله. شنوة تحب نعملك؟ » — garde les mots techniques français tels quels " +
-  "(ex: الكود، الـ serveur، الـ fichier). Si l'utilisateur écrit dans une autre langue " +
-  "(français, anglais, arabe standard…), réponds dans CETTE langue. " +
-  "Ton clair, direct et utile.";
+  "You are HiTech Client, a Tunisian AI assistant. LANGUAGE RULE (critical, overrides everything): " +
+  "By default reply in Tunisian Darija written in ARABIC SCRIPT ONLY. " +
+  "NEVER reply in Chinese (中文), Japanese, Korean, Russian or any other language. " +
+  "NEVER mix scripts: no Chinese characters, no Latin arabizi inside Arabic text. " +
+  "Keep technical words in French/English as-is (ex: الكود، الـ serveur، الـ fichier). " +
+  "If the user writes in another language (French, English, standard Arabic…), reply in THAT language only. " +
+  "Style examples (copy this tone): " +
+  "« شنوة الأحوال؟ لاباس عليا الحمد لله. شنوة تحب نعملك اليوم؟ » " +
+  "« باهي، نجم نعاونك. هاذي 3 أفكار باش تبدا المشروع: الأولى… الثانية… الثالثة… » " +
+  "« مافهمتش السؤال، توّا عاود الشرح لي بالعربي التونسي. » " +
+  "Be clear, direct and helpful.";
+
+/* Weak local models ignore "reply in the user's language", so we detect it
+   client-side and append a hard hint to the system prompt. */
+function langHint(text) {
+  if (/[\u0600-\u06FF]/.test(text)) return ""; // Arabic script -> default darija
+  const fr = /\b(le|la|les|un|une|des|du|je|tu|il|elle|nous|vous|est|sont|pour|avec|dans|sur|pas|mais|donne|donnez|écris|peux|pourriez|comment|quoi|pourquoi|projet|idées|aide)\b/i;
+  const en = /\b(the|is|are|you|your|my|how|what|why|please|give|can|could|write|help|project|ideas)\b/i;
+  if (fr.test(text) && !en.test(text))
+    return " IMPORTANT: the user's last message is in FRENCH. Reply in FRENCH only, no other language.";
+  if (en.test(text) && !fr.test(text))
+    return " IMPORTANT: the user's last message is in ENGLISH. Reply in ENGLISH only, no other language.";
+  return " Reply in the same language as the user's last message, no other language.";
+}
 
 /* API base: same-origin on web/desktop; absolute backend when the UI is
    bundled (Capacitor/file). Override: localStorage["hcf-api"]. */
@@ -230,13 +247,14 @@ async function regenMsg(btn) {
   const box = btn.closest(".msg");
   const all = [...document.querySelectorAll("#msgs .msg")];
   if (all[all.length - 1] !== box) { toast(LANG === "tn" ? "Régénéri el réponse el lakhera ken." : "Régénère la dernière réponse seulement."); return; }
+  const utext = all.length > 1 ? (all[all.length - 2].textContent || "") : "";
   sending = true;
   box.remove();
   const nb = addMsg("assistant", [{ type: "text", text: "…" }]);
   try {
     await streamInto(SID, { content: [{ type: "text", text: "(régénère)" }],
                             backend: $("backendSel").value, model: $("modelSel").value,
-                            system: DARIJA_SYS, regen: true }, nb);
+                            system: DARIJA_SYS + langHint(utext), regen: true }, nb);
   } catch (e) { nb.innerHTML = `<p class="muted">Erreur: ${esc(e.message)}</p>`; }
   sending = false;
 }
@@ -585,7 +603,7 @@ async function send() {
   const box = addMsg("assistant", [{ type: "text", text: "…" }]);
   try {
     await streamInto(SID, { content: parts, backend: $("backendSel").value,
-                            model: $("modelSel").value, system: DARIJA_SYS }, box);
+                            model: $("modelSel").value, system: DARIJA_SYS + langHint(text) }, box);
   } catch (e) { box.innerHTML = `<p class="muted">Erreur: ${esc(e.message)}</p>`; }
   sending = false;
   refreshSessions();
