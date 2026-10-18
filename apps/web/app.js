@@ -399,6 +399,55 @@ function showPending() {
 }
 
 function attachVideo() { $("vidFile").click(); }
+
+/* ---- attach local files / whole folder (any file, not just Drive) ---- */
+$("localFile").addEventListener("change", async () => {
+  const files = [...$("localFile").files];
+  $("localFile").value = "";
+  if (!files.length) return;
+  let n = 0;
+  for (const f of files) {
+    const ext = (f.name.split(".").pop() || "").toLowerCase();
+    try {
+      if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) {
+        const dataUrl = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(f); });
+        pendingImages.push({ type: "image_url", url: dataUrl }); n++;
+      } else if (TEXT_EXTS.includes(ext)) {
+        const txt = (await f.text()).slice(0, 60000);
+        pendingAttach.push({ type: "text", text: `[Fichier: ${f.name}]\n${txt}\n[/Fichier]` }); n++;
+      } else { toast("⏭ " + f.name + " — type non supporté"); }
+    } catch { toast("⚠ " + f.name); }
+  }
+  if (n) { showPending(); toast("📎 " + n + " fichier(s) joint(s)"); }
+});
+
+$("folderFile").addEventListener("change", async () => {
+  const files = [...$("folderFile").files];
+  $("folderFile").value = "";
+  if (!files.length) return;
+  const root = (files[0].webkitRelativePath || f.name || "dossier").split("/")[0] || "dossier";
+  const MAX_FILES = 40, MAX_SIZE = 30000, MAX_TOTAL = 150000;
+  const isTxt = f => TEXT_EXTS.includes((f.name.split(".").pop() || "").toLowerCase());
+  const textFiles = files.filter(f => isTxt(f) && f.size < 200000).slice(0, MAX_FILES);
+  const imgs = files.filter(f => ["png", "jpg", "jpeg", "webp"].includes((f.name.split(".").pop() || "").toLowerCase()) && f.size < 2000000).slice(0, 5);
+  const tree = files.map(f => f.webkitRelativePath || f.name).sort().slice(0, 300).join("\n");
+  let body = `[Dossier: ${root}] (${files.length} fichiers)\nArborescence:\n${tree}\n`;
+  let total = 0, included = 0;
+  for (const f of textFiles) {
+    if (total > MAX_TOTAL) break;
+    const txt = (await f.text()).slice(0, MAX_SIZE);
+    total += txt.length; included++;
+    body += `\n--- ${f.webkitRelativePath || f.name} ---\n${txt}\n`;
+  }
+  body += "\n[/Dossier]";
+  pendingAttach.push({ type: "text", text: body });
+  for (const f of imgs) {
+    const dataUrl = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(f); });
+    pendingImages.push({ type: "image_url", url: dataUrl });
+  }
+  showPending();
+  toast(`🗂️ ${root} : ${included} fichier(s) texte${imgs.length ? " + " + imgs.length + " image(s)" : ""}`);
+});
 $("vidFile").addEventListener("change", async () => {
   const f = $("vidFile").files[0];
   if (!f) return;
