@@ -52,6 +52,10 @@
 #welcome .chips{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;margin-top:1rem}
 .chip{background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:.5rem .9rem;border-radius:999px;cursor:pointer;font-size:.82rem;transition:all .15s}
 .chip:hover{border-color:var(--acc);color:var(--acc);transform:translateY(-1px)}
+/* oauth buttons */
+.oauth-row{display:flex;flex-direction:column;gap:.45rem;margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--line)}
+.oauth{text-align:center;text-decoration:none;font-size:.85rem}
+.oauth:hover{border-color:var(--acc)}
 #msgs{flex:1;overflow:auto;padding:1rem;display:flex;flex-direction:column;gap:.8rem}
 .msg{max-width:min(760px,92%);padding:.7rem .9rem;border-radius:12px;line-height:1.55;font-size:.92rem;animation:fadein .2s ease}
 .msg.user{align-self:flex-end;background:#0284c7;color:#fff}

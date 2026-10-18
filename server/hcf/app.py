@@ -157,6 +157,49 @@ async def auth_logout(response: Response):
     return res
 
 
+# ---- OAuth (Google / GitHub) ---------------------------------------------
+@app.get("/api/hc/auth/oauth/{provider}/start")
+async def oauth_start(provider: str):
+    if not auth.oauth_provider_ok(provider):
+        raise HTTPException(status_code=404, detail=f"oauth {provider}: non configuré")
+    state = secrets.token_urlsafe(32)
+    res = RedirectResponse(auth.oauth_authorize_url(provider, state), status_code=303)
+    res.set_cookie("oauth_state", state, httponly=True, samesite="lax",
+                   max_age=600, path=f"/api/hc/auth/oauth/{provider}")
+    return res
+
+
+@app.get("/api/hc/auth/oauth/{provider}/callback")
+async def oauth_callback(provider: str, request: Request):
+    if not auth.oauth_provider_ok(provider):
+        raise HTTPException(status_code=404, detail=f"oauth {provider}: non configuré")
+    want = request.cookies.get("oauth_state", "")
+    got = request.query_params.get("state", "")
+    if not want or not got or not secrets.compare_digest(want, got):
+        raise HTTPException(status_code=400, detail="oauth: state invalide (CSRF)")
+    code = request.query_params.get("code", "")
+    if not code:
+        raise HTTPException(status_code=400, detail="oauth: code manquant")
+    try:
+        profile = await auth.oauth_exchange(provider, code)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    user = store.get_or_create_user(profile["email"])
+    store.touch_login(user["id"])
+    if profile["name"] and not user.get("name"):
+        with store._lock:
+            store._conn.execute("UPDATE users SET name=? WHERE id=?",
+                                (profile["name"][:80], user["id"]))
+            store._conn.commit()
+        user["name"] = profile["name"]
+    token = auth.make_user_token(user["id"], user["email"])
+    res = RedirectResponse("/", status_code=303)
+    res.set_cookie("hcf_user", token, httponly=True, samesite="none",
+                   secure=True, max_age=30 * 24 * 3600)
+    res.delete_cookie("oauth_state", path=f"/api/hc/auth/oauth/{provider}")
+    return res
+
+
 def _scope_uid(request: Request) -> str | None:
     """user_id filter for session routes; None = admin (sees everything)."""
     if getattr(request.state, "auth_kind", "") == "user":
@@ -352,7 +395,7 @@ async def token_gate(request: Request, call_next):
             tok = "" if ut else tok
         if not ut and not (tok and secrets.compare_digest(tok, _want_token())):
             # self-service auth endpoints open once SMTP is configured
-            if path.startswith("/api/hc/auth/") and auth.AUTH_OPEN:
+            if path.startswith("/api/hc/auth/") and (auth.AUTH_OPEN or auth.OAUTH_ENABLED):
                 request.state.auth_kind = "anon"
                 request.state.user = None
                 return await call_next(request)

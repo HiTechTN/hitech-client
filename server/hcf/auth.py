@@ -37,6 +37,89 @@ SMTP_PASS = os.getenv("SMTP_PASS", "")
 SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER or "hcf@hitech.tn")
 AUTH_OPEN = bool(SMTP_HOST) or DEV_MODE  # self-service once mail works (or explicit test mode)
 
+# ---- OAuth (Google / GitHub) — enabled once client id/secret are set ------
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
+OAUTH_BASE = os.getenv("HCF_OAUTH_BASE", "https://client.hitech.tn")
+OAUTH_ENABLED = bool((GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET) or
+                     (GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET))
+
+
+def oauth_provider_ok(provider: str) -> bool:
+    return provider in ("google", "github") and {
+        "google": GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET,
+        "github": GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET,
+    }.get(provider)
+
+
+def oauth_redirect_uri(provider: str) -> str:
+    return f"{OAUTH_BASE}/api/hc/auth/oauth/{provider}/callback"
+
+
+def oauth_authorize_url(provider: str, state: str) -> str:
+    import urllib.parse as up
+    ru = oauth_redirect_uri(provider)
+    if provider == "google":
+        q = up.urlencode({"client_id": GOOGLE_CLIENT_ID, "redirect_uri": ru,
+                          "response_type": "code", "scope": "openid email profile",
+                          "state": state, "prompt": "select_account"})
+        return f"https://accounts.google.com/o/oauth2/v2/auth?{q}"
+    q = up.urlencode({"client_id": GITHUB_CLIENT_ID, "redirect_uri": ru,
+                      "response_type": "code", "scope": "read:user user:email",
+                      "state": state})
+    return f"https://github.com/login/oauth/authorize?{q}"
+
+
+async def oauth_exchange(provider: str, code: str) -> dict:
+    """Code -> verified email + name. Raises ValueError on any failure."""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=15) as cli:
+            if provider == "google":
+                r = await cli.post("https://oauth2.googleapis.com/token", data={
+                    "code": code,
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "redirect_uri": oauth_redirect_uri(provider),
+                    "grant_type": "authorization_code"})
+                r.raise_for_status()
+                at = r.json().get("access_token", "")
+                r2 = await cli.get("https://openidconnect.googleapis.com/v1/userinfo",
+                                   headers={"Authorization": f"Bearer {at}"})
+                r2.raise_for_status()
+                p = r2.json()
+                if not p.get("email_verified"):
+                    raise ValueError("email google non vérifié")
+                return {"email": p["email"], "name": p.get("name", "")}
+            # github
+            r = await cli.post("https://github.com/login/oauth/access_token",
+                               data={"code": code,
+                                     "client_id": GITHUB_CLIENT_ID,
+                                     "client_secret": GITHUB_CLIENT_SECRET,
+                                     "redirect_uri": oauth_redirect_uri(provider)},
+                               headers={"Accept": "application/json"})
+            r.raise_for_status()
+            at = r.json().get("access_token", "")
+            if not at:
+                raise ValueError("github: pas de token")
+            h = {"Authorization": f"Bearer {at}", "Accept": "application/vnd.github+json"}
+            r2 = await cli.get("https://api.github.com/user", headers=h)
+            r2.raise_for_status()
+            name = r2.json().get("name") or r2.json().get("login", "")
+            r3 = await cli.get("https://api.github.com/user/emails", headers=h)
+            r3.raise_for_status()
+            primary = next((e for e in r3.json()
+                            if e.get("primary") and e.get("verified")), None)
+            if not primary:
+                raise ValueError("github: email primaire non vérifié")
+            return {"email": primary["email"], "name": name}
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"oauth {provider}: {e}")
+
 
 def _b64u(b: bytes) -> str:
     return base64.urlsafe_b64encode(b).rstrip(b"=").decode()

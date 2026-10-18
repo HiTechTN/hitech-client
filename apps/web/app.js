@@ -122,6 +122,11 @@ function loginBack() {
   $("loginStep1").classList.remove("hidden");
   $("loginErr").textContent = "";
 }
+function oauthGo(provider) {
+  const base = HCF_API || "";
+  location.href = `${base}/api/hc/auth/oauth/${provider}/start`;
+  return false;
+}
 async function loadMe() {
   try {
     const r = await fetch(hurl("/api/hc/me"), { credentials: "include", headers: authHeaders() });
