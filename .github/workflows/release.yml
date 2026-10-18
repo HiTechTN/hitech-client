@@ -31,9 +31,19 @@ jobs:
         with: { node-version: "20" }
       - uses: actions/setup-java@v4
         with: { distribution: "temurin", java-version: "21" }
-      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: |
+          sudo mkdir -p /usr/local/lib/android/sdk/cmdline-tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/clt.zip
+          sudo unzip -q /tmp/clt.zip -d /usr/local/lib/android/sdk/cmdline-tools
+          sudo mv /usr/local/lib/android/sdk/cmdline-tools/cmdline-tools /usr/local/lib/android/sdk/cmdline-tools/latest
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" > /dev/null
       - name: Build web + sync + APK
         working-directory: apps/mobile
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
           npm ci
           npm run build:web

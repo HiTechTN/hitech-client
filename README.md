@@ -168,8 +168,12 @@ hitech-client/
 
 ## 🎥 Video tutoriel
 
-> 🚧 **Bientôt** — tutoriel video bedderja m3a sout tounsi s7i7 🔊
-> (screencast + voix + sous-titres) — yji fel release v1.0.0
+**Tutoriel complet bedderja** (80s) — sout tounsi s7i7 🔊 + sous-titres :
+
+https://github.com/HiTechTN/hitech-client/raw/main/docs/video/hitech-client-tuto.mp4
+
+> 📥 Le fichier est aussi attaché à la [release v1.0.0](https://github.com/HiTechTN/hitech-client/releases/latest)
+> (sous-titres : `docs/video/tuto.srt`)
 
 ---
 

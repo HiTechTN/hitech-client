@@ -4,6 +4,7 @@
   "description": "Wrapper **Tauri** autour de `../web` (même UI, mêmes fichiers) + binaire `opencode serve` embarqué ou distant.",
   "main": "index.js",
   "scripts": {
+    "tauri": "tauri",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
