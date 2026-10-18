@@ -367,7 +367,7 @@ async def token_gate(request: Request, call_next):
     path = request.url.path
     if path == "/login" or path.startswith("/hc-static/"):
         return await call_next(request)
-    tok = request.cookies.get("hcf_token", "")
+    tok = request.cookies.get("hcf_token", "") or request.cookies.get("hcf_user", "")
     auth_kind, user = "admin", None
     authz = request.headers.get("authorization", "")
     if authz.lower().startswith("bearer "):
