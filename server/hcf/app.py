@@ -46,7 +46,7 @@ if cfg.openrouter.api_key:
     registry.register(OpenAICompatAdapter(
         id="openrouter", label="OpenRouter (cloud)",
         base_url=cfg.openrouter.base_url, api_key=cfg.openrouter.api_key,
-        default_model=cfg.openrouter.model))
+        default_model=cfg.openrouter.model, free_only=True))
 if cfg.opencode.enabled:
     registry.register(OpenCodeAdapter(
         base_url=cfg.opencode.base_url, store=store,

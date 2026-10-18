@@ -18,7 +18,8 @@ VISION_HINTS = ("vision", "-vl", "llava", "gpt-4o", "claude-3", "claude-4",
 class OpenAICompatAdapter(AdapterInterface):
     def __init__(self, *, id: str, label: str, base_url: str,
                  api_key: str = "", default_model: str = "",
-                 vision_model: str = "", timeout: float = 120.0):
+                 vision_model: str = "", timeout: float = 120.0,
+                 free_only: bool = False):
         self.id = id
         self.label = label
         self.base_url = base_url.rstrip("/")
@@ -26,6 +27,7 @@ class OpenAICompatAdapter(AdapterInterface):
         self.default_model = default_model
         self.vision_model = vision_model
         self.timeout = timeout
+        self.free_only = free_only  # OpenRouter: keep :free models only
 
     @property
     def capabilities(self) -> Capabilities:
@@ -43,19 +45,36 @@ class OpenAICompatAdapter(AdapterInterface):
         return any(h in m for h in VISION_HINTS)
 
     async def list_models(self) -> list[ModelInfo]:
+        ctx: dict[str, int] = {}
         try:
             async with httpx.AsyncClient(timeout=10) as cli:
                 r = await cli.get(f"{self.base_url}/models", headers=self._headers())
                 r.raise_for_status()
-                ids = [m.get("id", "") for m in r.json().get("data", []) if m.get("id")]
+                ids = []
+                for m in r.json().get("data", []):
+                    mid = m.get("id", "")
+                    if not mid:
+                        continue
+                    if self.free_only and not mid.endswith(":free"):
+                        continue
+                    ids.append(mid)
+                    cl = m.get("context_length")
+                    if cl:
+                        ctx[mid] = int(cl)
         except Exception:
             ids = []
         if not ids:
             ids = [m for m in (self.default_model, self.vision_model) if m]
         if self.default_model and self.default_model not in ids:
             ids.insert(0, self.default_model)
-        return [ModelInfo(id=i, vision=(i == self.vision_model or self._looks_vision(i)))
-                for i in ids]
+        out = []
+        for i in ids:
+            label = i
+            if i in ctx:
+                label = f"{i} · {ctx[i] // 1000}k"
+            out.append(ModelInfo(id=i, label=label,
+                                 vision=(i == self.vision_model or self._looks_vision(i))))
+        return out
 
     @staticmethod
     def _to_openai(messages: list[dict], system: str | None) -> list[dict]:

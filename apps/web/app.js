@@ -20,11 +20,19 @@ const STR = {
   fr: { newchat: "＋ Nouvelle conversation", sub: "framework universel",
         ph: "Écris ou dicte ton message… (Entrée = envoyer)",
         drive_title: "📁 HiTech Drive", login_msg: "Accès protégé — entre le token.", copied: "Copié.", need_admin: "Connectez-vous admin sur le Drive d'abord.",
-        exported: "Exporté vers le Drive.", empty: "Aucune conversation.", novideo: "Joignez une vidéo d'abord." },
+        exported: "Exporté vers le Drive.", empty: "Aucune conversation.", novideo: "Joignez une vidéo d'abord.",
+        mp_search: "Chercher un modèle…", free: "GRATUIT", off: "hors ligne",
+        w_title: "Salam, chnowa ne3mlou lel youm ?", w_sub: "Ekhtar sujet wela ekteb direct —",
+        chips: ["Résume ce texte pour moi", "Aide-moi à écrire un email pro", "Explique-moi ce code", "Donne-moi des idées de contenu", "Traduis en darija"],
+        deleted: "🗑 Supprimée", no_models: "Aucun modèle" },
   tn: { newchat: "＋ Conversation jdida", sub: "framework lel kol",
         ph: "Ekteb wela ahki… (Entrée = teb3ath)",
         drive_title: "📁 HiTech Drive", login_msg: "Da5el el token.", copied: "Tnassakh.", need_admin: "Connecti admin fel Drive 9bal.",
-        exported: "Tsavvegar fel Drive.", empty: "Ma famma chay.", novideo: "Zid vidéo 9bal." },
+        exported: "Tsavvegar fel Drive.", empty: "Ma famma chay.", novideo: "Zid vidéo 9bal.",
+        mp_search: "Lawwej 3la modèle…", free: "FREE", off: "off",
+        w_title: "Salam, chnowa ne3mlou lel youm ?", w_sub: "Ekhtar sujet wela ekteb direct —",
+        chips: ["Sommaire lel texte hedha", "3awni nekteb email pro", "Fahemni el code hedha", "A3tini idées contenu", "Traduji lel darija"],
+        deleted: "🗑 Tfasakh", no_models: "Ma famma modèles" },
 };
 let LANG = localStorage.getItem("hcf-lang") || "fr";
 function t(k) { return (STR[LANG] && STR[LANG][k]) || STR.fr[k] || k; }
@@ -36,6 +44,8 @@ function toggleLang() {
   LANG = LANG === "fr" ? "tn" : "fr";
   localStorage.setItem("hcf-lang", LANG);
   applyLang(); refreshSessions();
+  const w = $("welcome");
+  if (w) { w.remove(); showWelcome(); }
 }
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -78,12 +88,32 @@ function renderParts(parts) {
   }).join("");
 }
 function addMsg(role, parts) {
+  hideWelcome();
   const d = document.createElement("div");
   d.className = "msg " + role;
   d.innerHTML = renderParts(parts);
   $("msgs").appendChild(d);
   $("msgs").scrollTop = $("msgs").scrollHeight;
   return d;
+}
+
+/* ---------- Welcome screen ---------- */
+function showWelcome() {
+  if ($("msgs").children.length) return;
+  const w = document.createElement("div");
+  w.id = "welcome";
+  w.innerHTML = `
+    <div class="w-logo">H</div>
+    <h2>${t("w_title")}</h2>
+    <p class="muted">${t("w_sub")}</p>
+    <div class="chips">${(STR[LANG]?.chips || STR.fr.chips).map(c =>
+      `<button class="chip" onclick="useChip(this)">${esc(c)}</button>`).join("")}</div>`;
+  $("msgs").appendChild(w);
+}
+function hideWelcome() { const w = $("welcome"); if (w) w.remove(); }
+function useChip(btn) {
+  $("input").value = btn.textContent;
+  $("input").focus();
 }
 
 async function refreshBackends() {
@@ -93,9 +123,23 @@ async function refreshBackends() {
   $("connDot").textContent = ok ? "🟢 connecté" : "🔴 hors ligne";
   const sel = $("backendSel");
   sel.innerHTML = BACKENDS.map(b => `<option value="${b.id}">${esc(b.label)}${b.healthy ? "" : " (off)"}</option>`).join("");
-  sel.onchange = refreshModels;
+  renderBackendSeg();
+  sel.onchange = () => { renderBackendSeg(); refreshModels(); };
   await refreshModels();
 }
+function renderBackendSeg() {
+  const cur = $("backendSel").value;
+  $("backendSeg").innerHTML = BACKENDS.map(b =>
+    `<button class="seg-b ${b.id === cur ? "on" : ""}" onclick="selectBackend('${b.id}')" title="${esc(b.label)}"><span class="dot ${b.healthy ? "ok" : "ko"}"></span>${esc(b.label.split(" ")[0])}</button>`).join("");
+}
+function selectBackend(id) {
+  if ($("backendSel").value === id) return;
+  $("backendSel").value = id;
+  renderBackendSeg();
+  refreshModels();
+}
+
+let MODELS = [];
 async function refreshModels() {
   const bid = $("backendSel").value;
   const b = BACKENDS.find(x => x.id === bid);
@@ -108,9 +152,51 @@ async function refreshModels() {
   $("caps").textContent = caps.join(" · ");
   try {
     const d = await api("/api/hc/models?backend=" + encodeURIComponent(bid));
-    $("modelSel").innerHTML = (d.models || []).map(m => `<option value="${esc(m.id)}">${esc(m.label)}${m.vision ? " 👁" : ""}</option>`).join("");
-  } catch (e) { $("modelSel").innerHTML = ""; }
+    MODELS = d.models || [];
+  } catch (e) { MODELS = []; }
+  $("modelSel").innerHTML = MODELS.map(m => `<option value="${esc(m.id)}">${esc(m.label)}${m.vision ? " 👁" : ""}</option>`).join("");
+  renderModelBtn();
+  renderModelList("");
 }
+function shortModel(id) { const p = id.split("/"); return p[p.length - 1] || id; }
+function renderModelBtn() {
+  const id = $("modelSel").value || shortModel(MODELS[0]?.id || "");
+  const m = MODELS.find(x => x.id === id);
+  $("modelBtn").innerHTML = `<span class="mbtn-l">${esc(shortModel(id))}</span>${m?.vision ? '<span class="tag vis">👁</span>' : ""}<span class="chev">▾</span>`;
+}
+function toggleModelPicker(ev) {
+  ev.stopPropagation();
+  const p = $("modelPicker");
+  p.classList.toggle("hidden");
+  if (!p.classList.contains("hidden")) {
+    $("mpSearch").value = "";
+    renderModelList("");
+    $("mpSearch").focus();
+  }
+}
+function renderModelList(q) {
+  const cur = $("modelSel").value;
+  const ql = (q || "").toLowerCase();
+  const list = MODELS.filter(m => !ql || m.id.toLowerCase().includes(ql) || (m.label || "").toLowerCase().includes(ql));
+  $("mpList").innerHTML = list.map(m =>
+    `<div class="mrow ${m.id === cur ? "on" : ""}" onclick="pickModel('${esc(m.id)}')">
+      <span class="mrow-name">${esc(shortModel(m.id))}${m.vision ? ' <span class="tag vis">👁</span>' : ""}${m.id.endsWith(":free") ? ` <span class="tag free">${t("free")}</span>` : ""}</span>
+      <small class="mrow-sub">${esc(m.label)}</small>
+    </div>`).join("") || `<p class="muted mp-empty">${t("no_models")}</p>`;
+}
+function pickModel(id) {
+  $("modelSel").value = id;
+  renderModelBtn();
+  $("modelPicker").classList.add("hidden");
+}
+$("mpSearch").addEventListener("input", e => renderModelList(e.target.value));
+$("mpSearch").addEventListener("keydown", e => {
+  if (e.key === "Enter") { const first = document.querySelector("#mpList .mrow"); if (first) first.click(); }
+  if (e.key === "Escape") $("modelPicker").classList.add("hidden");
+});
+document.addEventListener("click", e => {
+  if (!e.target.closest(".mwrap")) $("modelPicker").classList.add("hidden");
+});
 
 async function refreshSessions() {
   const d = await api("/api/hc/sessions");
@@ -122,18 +208,21 @@ async function delSession(ev, id) {
   ev.stopPropagation();
   if (!confirm(LANG === "tn" ? "Tfasakh el conversation ?" : "Supprimer cette conversation ?")) return;
   await api(`/api/hc/sessions/${id}`, { method: "DELETE" });
-  if (SID === id) { SID = ""; $("msgs").innerHTML = ""; }
+  if (SID === id) { SID = ""; $("msgs").innerHTML = ""; showWelcome(); }
+  toast(t("deleted"));
   await refreshSessions();
 }
 async function newSession() {
   const s = await api("/api/hc/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ backend: $("backendSel").value, model: $("modelSel").value }) });
   SID = s.id; $("msgs").innerHTML = "";
+  showWelcome();
   await refreshSessions();
 }
 async function openSession(id) {
   SID = id; $("msgs").innerHTML = "";
   const d = await api(`/api/hc/sessions/${id}/messages`);
   for (const m of (d.messages || [])) addMsg(m.role, m.content);
+  if (!document.querySelector("#msgs .msg")) showWelcome();
   await refreshSessions();
 }
 let pendingImages = [];
@@ -272,6 +361,7 @@ async function boot() {
   applyLang();
   try { await refreshBackends(); } catch (e) { $("connDot").textContent = "🔴 " + e.message; }
   await refreshSessions();
+  showWelcome();
 }
 (async () => {
   if (HCF_API) {
