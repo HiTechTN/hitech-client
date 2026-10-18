@@ -19,12 +19,13 @@ import os
 import secrets
 from pathlib import Path
 
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import FastAPI, Form, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from . import auth
 from .adapters.base import AdapterRegistry
 from .adapters.opencode import OpenCodeAdapter
 from .adapters.openai_compat import OpenAICompatAdapter
@@ -88,6 +89,15 @@ class MessageIn(BaseModel):
     temperature: float = 0.7
 
 
+class EmailIn(BaseModel):
+    email: str
+
+
+class VerifyIn(BaseModel):
+    email: str
+    code: str
+
+
 @app.get("/api/hc/health")
 async def health():
     return {"ok": True, "service": "hitech-client", "backends": await registry.describe()}
@@ -110,28 +120,81 @@ async def models(backend: str = ""):
                        for m in await adapter.list_models()]}
 
 
-@app.get("/api/hc/sessions")
-async def list_sessions():
-    return {"sessions": store.list_sessions()}
+# ---- user auth (email + PIN) --------------------------------------------
+@app.post("/api/hc/auth/request-code")
+async def auth_request_code(body: EmailIn):
+    try:
+        return auth.request_code(store, body.email)
+    except ValueError as e:
+        raise HTTPException(status_code=429 if "attendez" in str(e) or "trop" in str(e) else 400,
+                            detail=str(e))
 
 
-@app.post("/api/hc/sessions")
-async def create_session(body: SessionIn):
-    bid = body.backend or cfg.server.default_backend
-    return store.create_session(title=body.title or "Conversation",
-                                backend=bid, model=body.model)
+@app.post("/api/hc/auth/verify")
+async def auth_verify(body: VerifyIn, response: Response):
+    try:
+        r = auth.verify_code(store, body.email, body.code)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    res = JSONResponse({"user": r["user"], "token": r["token"]})
+    res.set_cookie("hcf_user", r["token"], httponly=True, samesite="none",
+                   secure=True, max_age=30 * 24 * 3600)
+    return res
 
 
-@app.get("/api/hc/sessions/{sid}")
-async def get_session(sid: str):
+@app.get("/api/hc/me")
+async def me(request: Request):
+    u = getattr(request.state, "user", None)
+    if not u:
+        raise HTTPException(status_code=401, detail="non connecté")
+    return {"user": u}
+
+
+@app.post("/api/hc/auth/logout")
+async def auth_logout(response: Response):
+    res = JSONResponse({"ok": True})
+    res.delete_cookie("hcf_user")
+    return res
+
+
+def _scope_uid(request: Request) -> str | None:
+    """user_id filter for session routes; None = admin (sees everything)."""
+    if getattr(request.state, "auth_kind", "") == "user":
+        return request.state.user["uid"]
+    return None
+
+
+def _own_session(request: Request, sid: str) -> dict:
     s = store.get_session(sid)
     if not s:
+        raise HTTPException(status_code=404, detail="session introuvable")
+    uid = _scope_uid(request)
+    if uid is not None and s.get("user_id", "") != uid:
         raise HTTPException(status_code=404, detail="session introuvable")
     return s
 
 
+@app.get("/api/hc/sessions")
+async def list_sessions(request: Request):
+    return {"sessions": store.list_sessions(user_id=_scope_uid(request))}
+
+
+@app.post("/api/hc/sessions")
+async def create_session(request: Request, body: SessionIn):
+    bid = body.backend or cfg.server.default_backend
+    return store.create_session(title=body.title or "Conversation",
+                                backend=bid, model=body.model,
+                                user_id=_scope_uid(request) or "")
+
+
+@app.get("/api/hc/sessions/{sid}")
+async def get_session(request: Request, sid: str):
+    return _own_session(request, sid)
+
+
 @app.patch("/api/hc/sessions/{sid}")
-async def patch_session(sid: str, body: SessionPatch):
+async def patch_session(request: Request, sid: str, body: SessionPatch):
+    _own_session(request, sid)
     s = store.update_session(sid, **{k: v for k, v in body.model_dump().items()
                                      if v is not None})
     if not s:
@@ -140,22 +203,22 @@ async def patch_session(sid: str, body: SessionPatch):
 
 
 @app.delete("/api/hc/sessions/{sid}")
-async def delete_session(sid: str):
+async def delete_session(request: Request, sid: str):
+    _own_session(request, sid)
     if not store.delete_session(sid):
         raise HTTPException(status_code=404, detail="session introuvable")
     return {"ok": True}
 
 
 @app.get("/api/hc/sessions/{sid}/messages")
-async def get_messages(sid: str):
-    if not store.get_session(sid):
-        raise HTTPException(status_code=404, detail="session introuvable")
+async def get_messages(request: Request, sid: str):
+    _own_session(request, sid)
     return {"messages": store.list_messages(sid)}
 
 
 @app.post("/api/hc/sessions/{sid}/messages")
 async def post_message(sid: str, body: MessageIn, request: Request, stream: bool = True):
-    s = store.get_session(sid)
+    s = _own_session(request, sid)
     if not s:
         raise HTTPException(status_code=404, detail="session introuvable")
     parts = _as_parts(body.content)
@@ -236,6 +299,10 @@ LOGIN_HTML = """<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
 async def login_page():
     if not _want_token():
         return RedirectResponse("/", status_code=303)
+    # serve the SPA: its overlay handles email+PIN login (and admin token)
+    idx = WEB_DIR / "index.html"
+    if idx.exists():
+        return HTMLResponse(idx.read_text(encoding="utf-8"))
     return LOGIN_HTML
 
 
@@ -255,19 +322,46 @@ async def token_gate(request: Request, call_next):
     if not _want_token():
         return await call_next(request)
     path = request.url.path
-    if path == "/login":
+    if path == "/login" or path.startswith("/hc-static/"):
         return await call_next(request)
     tok = request.cookies.get("hcf_token", "")
-    auth = request.headers.get("authorization", "")
-    if auth.lower().startswith("bearer "):
-        tok = auth[7:].strip() or tok
-    if not tok:
+    auth_kind, user = "admin", None
+    authz = request.headers.get("authorization", "")
+    if authz.lower().startswith("bearer "):
+        tok = authz[7:].strip() or tok
+    # user token (email login) takes precedence when it parses
+    ut = None
+    if tok and "." in tok:
+        ut = auth.parse_user_token(tok)
+    if ut:
+        auth_kind, user = "user", ut
+        urow = store.get_user(ut["uid"])
+        if urow:
+            user = {**ut, "name": urow["name"]}
+    elif tok and secrets.compare_digest(tok, _want_token()):
+        pass  # admin via public token
+    else:
         tok = request.query_params.get("token", "")
-    if tok and secrets.compare_digest(tok, _want_token()):
-        return await call_next(request)
-    if path.startswith("/api/"):
-        return JSONResponse({"detail": "auth requise"}, status_code=401)
-    return RedirectResponse("/login", status_code=303)
+        if tok and "." in tok:
+            ut = auth.parse_user_token(tok)
+            if ut:
+                auth_kind, user = "user", ut
+                urow = store.get_user(ut["uid"])
+                if urow:
+                    user = {**ut, "name": urow["name"]}
+            tok = "" if ut else tok
+        if not ut and not (tok and secrets.compare_digest(tok, _want_token())):
+            # self-service auth endpoints open once SMTP is configured
+            if path.startswith("/api/hc/auth/") and auth.AUTH_OPEN:
+                request.state.auth_kind = "anon"
+                request.state.user = None
+                return await call_next(request)
+            if path.startswith("/api/"):
+                return JSONResponse({"detail": "auth requise"}, status_code=401)
+            return RedirectResponse("/login", status_code=303)
+    request.state.auth_kind = auth_kind
+    request.state.user = user
+    return await call_next(request)
 
 
 app.include_router(media_video.router)

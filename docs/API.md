@@ -50,8 +50,22 @@ Erreurs : `400` message vide, `404` session inconnue, `502` backend indisponible
 
 ## Auth navigateur
 
-- `GET /login` — page token.
+- `GET /login` — page token (admin).
 - `POST /login` — form `token` → cookie `hcf_token` (HttpOnly) si valide.
+
+## Comptes utilisateurs (email + PIN)
+
+| Route | Description |
+|---|---|
+| `POST /api/hc/auth/request-code` | `{email}` → code 6 chiffres envoyé par mail (TTL 10 min, 3/h, cooldown 60s). Sans SMTP configuré : écrit dans `data/outbox/` ; si `HCF_AUTH_DEV_MODE=1` → `dev_code` dans la réponse (TEST ONLY) |
+| `POST /api/hc/auth/verify` | `{email, code}` → `{user, token}` + cookie `hcf_user` (HttpOnly, SameSite=None, Secure, 30j) |
+| `GET /api/hc/me` | Utilisateur courant (cookie ou `Authorization: Bearer <user_token>`) |
+| `POST /api/hc/auth/logout` | Efface le cookie |
+
+**Scoping** : les routes `/api/hc/sessions*` filtrent par `user_id` pour les
+utilisateurs (leur workspace : historique persistant). Le token public reste
+l'accès admin (voit tout). Les endpoints `auth/*` sont ouverts sans token
+uniquement quand SMTP est configuré (ou `HCF_AUTH_DEV_MODE=1`).
 
 ## Notes
 

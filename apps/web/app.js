@@ -52,12 +52,18 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 
 let HCF_TOKEN = null;
 try { HCF_TOKEN = localStorage.getItem("hcf-token"); } catch {}
+let USER_TOKEN = null;
+try { USER_TOKEN = localStorage.getItem("hcf-user-token"); } catch {}
 function hurl(path) {
   let url = HCF_API + path;
-  if (HCF_API && HCF_TOKEN && !/[?&]token=/.test(url)) {
+  const hasTok = /[?&]token=/.test(url);
+  if (HCF_API && HCF_TOKEN && !hasTok) {
     url += (url.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(HCF_TOKEN);
   }
   return url;
+}
+function authHeaders() {
+  return USER_TOKEN ? { "Authorization": "Bearer " + USER_TOKEN } : {};
 }
 async function bundleLogin() {
   const v = $("loginToken").value.trim();
@@ -71,7 +77,70 @@ async function bundleLogin() {
     await boot();
   } catch (e) { $("loginErr").textContent = "Token invalide."; }
 }
+
+/* ---------- email + PIN login ---------- */
+let loginEmail = "";
+async function requestCode() {
+  const v = $("loginEmail").value.trim();
+  if (!v) { $("loginErr").textContent = "Entre ton email."; return; }
+  loginEmail = v;
+  $("loginErr").textContent = "";
+  try {
+    const r = await fetch(HCF_API + "/api/hc/auth/request-code", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: v })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || r.status);
+    $("loginEmailShow").textContent = v;
+    $("loginStep1").classList.add("hidden");
+    $("loginStep2").classList.remove("hidden");
+    $("loginPin").focus();
+    if (d.dev_code) $("loginErr").textContent = "(test) code: " + d.dev_code;
+  } catch (e) { $("loginErr").textContent = "Erreur: " + e.message; }
+}
+async function verifyCode() {
+  const code = $("loginPin").value.trim();
+  if (!code) return;
+  $("loginErr").textContent = "";
+  try {
+    const r = await fetch(HCF_API + "/api/hc/auth/verify", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: loginEmail, code })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || r.status);
+    USER_TOKEN = d.token;
+    try { localStorage.setItem("hcf-user-token", USER_TOKEN); } catch {}
+    $("loginOverlay").classList.add("hidden");
+    await boot();
+  } catch (e) { $("loginErr").textContent = "Erreur: " + e.message; }
+}
+function loginBack() {
+  $("loginStep2").classList.add("hidden");
+  $("loginStep1").classList.remove("hidden");
+  $("loginErr").textContent = "";
+}
+async function loadMe() {
+  try {
+    const r = await fetch(hurl("/api/hc/me"), { credentials: "include", headers: authHeaders() });
+    if (!r.ok) return null;
+    const d = await r.json();
+    $("userEmail").textContent = d.user.email;
+    $("userBox").classList.remove("hidden");
+    return d.user;
+  } catch { return null; }
+}
+async function userLogout() {
+  USER_TOKEN = null;
+  try { localStorage.removeItem("hcf-user-token"); } catch {}
+  try { await fetch(hurl("/api/hc/auth/logout"), { method: "POST", credentials: "include" }); } catch {}
+  location.reload();
+}
 async function api(path, opts = {}) {
+  opts.credentials = "include";
+  opts.headers = { ...authHeaders(), ...(opts.headers || {}) };
   const r = await fetch(hurl(path), opts);
   if (!r.ok) { let m = r.status; try { m = (await r.json()).detail || m; } catch {} throw new Error(m); }
   return r.json();
@@ -246,7 +315,7 @@ $("vidFile").addEventListener("change", async () => {
   try {
     const fd = new FormData();
     fd.append("file", f); fd.append("fps", "1"); fd.append("max_frames", "20");
-    const r = await fetch(hurl("/api/hc/media/video-frames"), { method: "POST", body: fd });
+    const r = await fetch(hurl("/api/hc/media/video-frames"), { method: "POST", credentials: "include", headers: authHeaders(), body: fd });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const d = await r.json();
     pendingImages = (d.frames || []).map(x => ({ type: "image_url", url: x.url }));
@@ -276,7 +345,7 @@ async function dictate() {
         const fd = new FormData();
         fd.append("file", blob, "dictation.webm"); fd.append("tier", "local"); fd.append("lang", "ar");
         btn.textContent = "⏳";
-        const r = await fetch(hurl("/api/hc/media/transcribe"), { method: "POST", body: fd });
+        const r = await fetch(hurl("/api/hc/media/transcribe"), { method: "POST", credentials: "include", headers: authHeaders(), body: fd });
         if (!r.ok) throw new Error("HTTP " + r.status);
         const d = await r.json();
         $("input").value = ($("input").value ? $("input").value + " " : "") + (d.text || "");
@@ -297,7 +366,8 @@ function toggleTTS() {
 async function speakText(text) {
   try {
     const r = await fetch(hurl("/api/hc/media/speak"), {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({ text: text.slice(0, 1500) })
     });
     if (!r.ok) return;
@@ -326,7 +396,8 @@ async function send() {
   const box = addMsg("assistant", [{ type: "text", text: "…" }]);
   try {
     const r = await fetch(hurl(`/api/hc/sessions/${SID}/messages`), {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({ content: parts, backend: $("backendSel").value, model: $("modelSel").value })
     });
     if (!r.ok) throw new Error("HTTP " + r.status);
@@ -364,14 +435,15 @@ async function boot() {
   showWelcome();
 }
 (async () => {
-  if (HCF_API) {
-    let ok = false;
-    if (HCF_TOKEN) {
-      try { const r = await fetch(HCF_API + "/api/hc/health?token=" + encodeURIComponent(HCF_TOKEN)); ok = r.ok; } catch {}
-    }
-    if (!ok) { applyLang(); $("loginOverlay").classList.remove("hidden"); return; }
-  }
+  applyLang();
+  let authed = false;
+  try {
+    const r = await fetch(hurl("/api/hc/backends"), { credentials: "include", headers: authHeaders() });
+    authed = r.ok;
+  } catch {}
+  if (!authed) { $("loginOverlay").classList.remove("hidden"); return; }
   await boot();
+  loadMe();
 })();
 
 /* ---------- HiTech Drive integration ---------- */
