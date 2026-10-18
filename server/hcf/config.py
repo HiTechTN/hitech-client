@@ -19,7 +19,7 @@ class OllamaCfg:
 class OpenRouterCfg:
     base_url: str = "https://openrouter.ai/api/v1"
     api_key: str = ""
-    model: str = "meta-llama/llama-3.1-8b-instruct:free"
+    model: str = "xingchen-agi/xing4.0-29b-a4b:free"
 
 
 @dataclass
@@ -69,7 +69,7 @@ class HCFConfig:
             openrouter=OpenRouterCfg(
                 base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
                 api_key=os.getenv("OPENROUTER_API_KEY", ""),
-                model=os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.1-8b-instruct:free"),
+                model=os.getenv("OPENROUTER_MODEL", "xingchen-agi/xing4.0-29b-a4b:free"),
             ),
             opencode=OpenCodeCfg(
                 base_url=os.getenv("OC_BASE_URL", "http://127.0.0.1:4097"),

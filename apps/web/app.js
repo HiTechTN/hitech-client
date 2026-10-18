@@ -115,8 +115,15 @@ async function refreshModels() {
 async function refreshSessions() {
   const d = await api("/api/hc/sessions");
   $("sessions").innerHTML = (d.sessions || []).map(s =>
-    `<div class="sess ${s.id === SID ? "on" : ""}" onclick="openSession('${s.id}')" title="${esc(s.backend)} ${esc(s.model)}">${esc(s.title)}<small>${esc(s.backend || "")} · ${new Date(s.updated * 1000).toLocaleDateString()}</small></div>`).join("")
+    `<div class="sess ${s.id === SID ? "on" : ""}" onclick="openSession('${s.id}')" title="${esc(s.backend)} ${esc(s.model)}"><span class="sess-t">${esc(s.title)}<small>${esc(s.backend || "")} · ${new Date(s.updated * 1000).toLocaleDateString()}</small></span><button class="del" onclick="delSession(event,'${s.id}')" title="Supprimer">✕</button></div>`).join("")
     || `<p class="muted">Aucune conversation.</p>`;
+}
+async function delSession(ev, id) {
+  ev.stopPropagation();
+  if (!confirm(LANG === "tn" ? "Tfasakh el conversation ?" : "Supprimer cette conversation ?")) return;
+  await api(`/api/hc/sessions/${id}`, { method: "DELETE" });
+  if (SID === id) { SID = ""; $("msgs").innerHTML = ""; }
+  await refreshSessions();
 }
 async function newSession() {
   const s = await api("/api/hc/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ backend: $("backendSel").value, model: $("modelSel").value }) });

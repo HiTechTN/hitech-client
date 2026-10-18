@@ -5,9 +5,13 @@
 .side-head{display:flex;gap:.6rem;align-items:center}.logo{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#0284c7,#38bdf8);display:flex;align-items:center;justify-content:center;font-weight:900;color:#04121f}
 .side-head small{display:block;color:var(--mut)}
 #sessions{flex:1;overflow:auto;display:flex;flex-direction:column;gap:.3rem}
-.sess{padding:.5rem .6rem;border-radius:8px;cursor:pointer;font-size:.88rem;border:1px solid transparent;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sess{padding:.5rem .6rem;border-radius:8px;cursor:pointer;font-size:.88rem;border:1px solid transparent;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:.4rem}
 .sess:hover{background:var(--panel2)}.sess.on{border-color:var(--acc);background:var(--panel2)}
 .sess small{display:block;color:var(--mut);font-size:.72rem}
+.sess .sess-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sess .del{flex:none;background:none;border:none;color:var(--mut);cursor:pointer;font-size:.8rem;padding:2px 4px;border-radius:4px;opacity:0;transition:opacity .12s}
+.sess:hover .del{opacity:1}
+.sess .del:hover{color:#e5484d;background:rgba(229,72,77,.12)}
 .side-foot{border-top:1px solid var(--line);padding-top:.5rem}
 #main{flex:1;display:flex;flex-direction:column;min-width:0}
 #chatHead{display:flex;gap:.5rem;align-items:center;padding:.7rem 1rem;border-bottom:1px solid var(--line);background:var(--panel)}

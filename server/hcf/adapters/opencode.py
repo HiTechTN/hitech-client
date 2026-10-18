@@ -49,19 +49,20 @@ class OpenCodeAdapter(AdapterInterface):
         return self.default_provider, self.default_model
 
     async def list_models(self) -> list[ModelInfo]:
+        """Only providers/models actually configured in the serve /config
+        (avoids dumping the whole models.dev catalogue — 8000+ entries)."""
+        out: list[ModelInfo] = []
         try:
             async with httpx.AsyncClient(timeout=15) as cli:
-                r = await cli.get(f"{self.base_url}/provider")
+                r = await cli.get(f"{self.base_url}/config")
                 r.raise_for_status()
-                providers = (r.json().get("all") or [])
+                for pid, p in (r.json().get("provider") or {}).items():
+                    for mid, m in (p.get("models") or {}).items():
+                        label = (m.get("name") if isinstance(m, dict) else None) or mid
+                        out.append(ModelInfo(id=f"{pid}/{mid}", label=label,
+                                             vision=self._vision(mid)))
         except Exception:
-            providers = []
-        out = []
-        for p in providers:
-            pid = p.get("id", "")
-            for m in (p.get("models") or {}).keys():
-                out.append(ModelInfo(id=f"{pid}/{m}", label=f"{m} ({pid})",
-                                     vision=self._vision(m)))
+            pass
         if not out:
             out = [ModelInfo(id=f"{self.default_provider}/{self.default_model}")]
         # preferred default first
