@@ -385,6 +385,7 @@ $("mpSearch").addEventListener("keydown", e => {
 });
 document.addEventListener("click", e => {
   if (!e.target.closest(".mwrap")) $("modelPicker").classList.add("hidden");
+  if (!e.target.closest("#side") && !e.target.closest(".burger")) closeSide();
 });
 
 async function refreshSessions() {
@@ -401,14 +402,18 @@ async function delSession(ev, id) {
   toast(t("deleted"));
   await refreshSessions();
 }
+function openSide() { $("side").classList.add("open"); }
+function closeSide() { $("side").classList.remove("open"); }
 async function newSession() {
   const s = await api("/api/hc/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ backend: $("backendSel").value, model: $("modelSel").value }) });
   SID = s.id; $("msgs").innerHTML = "";
+  closeSide();
   showWelcome();
   await refreshSessions();
 }
 async function openSession(id) {
   SID = id; $("msgs").innerHTML = "";
+  closeSide();
   const d = await api(`/api/hc/sessions/${id}/messages`);
   for (const m of (d.messages || [])) {
     const raw = (m.content || []).filter(p => p.type === "text").map(p => p.text).join("\n\n");

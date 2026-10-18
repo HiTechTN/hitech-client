@@ -3,6 +3,7 @@
 .hidden{display:none!important}.muted{color:var(--mut);font-size:.82rem}
 #side{width:270px;min-width:270px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:.9rem;gap:.6rem}
 .side-head{display:flex;gap:.6rem;align-items:center}.logo{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#0284c7,#38bdf8);display:flex;align-items:center;justify-content:center;font-weight:900;color:#04121f}
+.side-close{display:none;margin-left:auto}
 .side-head small{display:block;color:var(--mut)}
 #sessions{flex:1;overflow:auto;display:flex;flex-direction:column;gap:.3rem}
 .sess{padding:.5rem .6rem;border-radius:8px;cursor:pointer;font-size:.88rem;border:1px solid transparent;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:.4rem}
@@ -17,6 +18,7 @@
 #chatHead{display:flex;gap:.5rem;align-items:center;padding:.7rem 1rem;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
 #chatHead select{background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:.45rem}
 .spacer{flex:1}
+.burger{display:none}
 /* backend segmented control */
 .seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:2px;gap:2px}
 .seg-b{display:flex;align-items:center;gap:.35rem;border:none;background:transparent;color:var(--mut);padding:.35rem .6rem;border-radius:6px;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .15s}
@@ -69,15 +71,25 @@
 .macts{display:flex;gap:.3rem;margin-top:.55rem;padding-top:.45rem;border-top:1px solid var(--line);flex-wrap:wrap}
 .macts button{background:transparent;border:1px solid var(--line);color:var(--mut);font-size:.68rem;padding:.18rem .5rem;border-radius:6px;cursor:pointer;line-height:1.2}
 .macts button:hover{color:var(--acc);border-color:var(--acc)}
-#composer{display:flex;gap:.5rem;padding:.8rem 1rem;border-top:1px solid var(--line);background:var(--panel);align-items:flex-end}
+#composer{display:flex;gap:.5rem;padding:.8rem 1rem;border-top:1px solid var(--line);background:var(--panel);align-items:flex-end;flex-wrap:wrap}
 #composer .btn.off{opacity:.45}
 #pending{padding:.4rem 1rem;border-top:1px solid var(--line);background:var(--panel)}
 #micBtn.rec{background:#b91c1c;border-color:#b91c1c;animation:blink 1s infinite}
 @keyframes blink{50%{opacity:.5}}
-#input{flex:1;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:.6rem;resize:vertical;font-size:.92rem}
+#input{flex:1 1 200px;min-width:180px;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:.6rem;resize:vertical;font-size:.92rem}
 .btn{border:1px solid var(--line);background:var(--panel2);color:var(--txt);padding:.55rem 1rem;border-radius:8px;cursor:pointer;font-weight:600}
 .btn:hover{filter:brightness(1.2)}.btn.primary{background:#0284c7;border-color:#0284c7}.btn.wide{width:100%}
-@media(max-width:720px){#side{position:fixed;z-index:20;height:100%;transform:translateX(-100%)}#side.open{transform:none}}
+@media(max-width:720px){
+  #side{position:fixed;z-index:20;height:100%;transform:translateX(-100%)}
+  #side.open{transform:none}
+  .side-close{display:inline-block}
+  .burger{display:inline-block}
+  #composer{gap:.35rem;padding:.6rem .5rem}
+  #composer .btn{padding:.5rem .55rem;font-size:.95rem}
+  #chatHead{flex-wrap:wrap;gap:.4rem;padding:.5rem .6rem}
+  #welcome h2{font-size:1.05rem}
+  #welcome .chips .chip{font-size:.82rem;padding:.4rem .6rem}
+}
 .btn.sm{padding:.35rem .6rem;font-size:.8rem}.btn.ghost{background:transparent}
 .modal{position:fixed;inset:0;background:rgba(2,6,16,.75);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem}
 .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:min(640px,100%);max-height:84vh;display:flex;flex-direction:column}

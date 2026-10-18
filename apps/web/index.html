@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HiTech Client — Framework Universel</title>
-<link rel="stylesheet" href="/hc-static/style.css?v=11">
+<link rel="stylesheet" href="/hc-static/style.css?v=12">
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
 </head>
 <body>
@@ -45,7 +45,7 @@
   </div>
 </div>
 <aside id="side">
-  <div class="side-head"><span class="logo">H</span><div><b>HiTech Client</b><small data-i18n="sub">framework universel</small></div></div>
+  <div class="side-head"><span class="logo">H</span><div><b>HiTech Client</b><small data-i18n="sub">framework universel</small></div><button class="btn sm side-close" onclick="closeSide()" title="Fermer">✕</button></div>
   <button class="btn primary wide" onclick="newSession()" data-i18n="newchat">＋ Nouvelle conversation</button>
   <div id="sessions"></div>
   <div class="side-foot muted">
@@ -55,6 +55,7 @@
 </aside>
 <main id="main">
   <header id="chatHead">
+    <button class="btn sm burger" onclick="openSide()" title="Conversations">☰</button>
     <div id="backendSeg" class="seg"></div>
     <select id="backendSel" class="hidden"></select>
     <div class="mwrap">
@@ -99,6 +100,6 @@
     </div>
   </div>
 </div>
-<script src="/hc-static/app.js?v=11"></script>
+<script src="/hc-static/app.js?v=12"></script>
 </body>
 </html>
