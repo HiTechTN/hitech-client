@@ -3,7 +3,7 @@
 .hidden{display:none!important}.muted{color:var(--mut);font-size:.82rem}
 #side{width:270px;min-width:270px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:.9rem;gap:.6rem}
 .side-head{display:flex;gap:.6rem;align-items:center}.logo{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#0284c7,#38bdf8);display:flex;align-items:center;justify-content:center;font-weight:900;color:#04121f}
-.side-close{display:none;margin-left:auto}
+.side-close{display:none;margin-top:.2rem}
 .side-head small{display:block;color:var(--mut)}
 #sessions{flex:1;overflow:auto;display:flex;flex-direction:column;gap:.3rem}
 .sess{padding:.5rem .6rem;border-radius:8px;cursor:pointer;font-size:.88rem;border:1px solid transparent;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:.4rem}
@@ -82,7 +82,7 @@
 @media(max-width:720px){
   #side{position:fixed;z-index:20;height:100%;transform:translateX(-100%)}
   #side.open{transform:none}
-  .side-close{display:inline-block}
+  .side-close{display:block;width:100%;box-sizing:border-box}
   .burger{display:inline-block}
   #composer{gap:.35rem;padding:.6rem .5rem}
   #composer .btn{padding:.5rem .55rem;font-size:.95rem}
